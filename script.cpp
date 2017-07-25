@@ -5,6 +5,9 @@
 #include "utils.h"
 #include <string>
 
+#include <Windows.h>
+#include <Psapi.h>
+
 #include "..\..\inc\GTAVMenuBase\menu.h"
 #include "..\..\inc\GTAVMenuBase\menu.cpp"
 #include "..\..\inc\GTAVMenuBase\menucontrols.h"
@@ -14,6 +17,8 @@
 
 using namespace Eigen;
 using namespace NativeMenu;
+
+float smoothIsMouseLooking = 0.f;
 
 BOOL modEnabled = true;
 BOOL camInitialized = false;
@@ -25,6 +30,7 @@ Vector3f vehRot;
 Vector3f vehVelocity;
 float vehSpeed;
 int vehGear;
+float lastVelocityMagnitude;
 
 Camera customCam = NULL;
 float fov = 75.;
@@ -48,9 +54,16 @@ Vector3f smoothVelocity = Vector3f();
 Quaternionf velocityQuat3P = Quaternionf();
 Quaternionf smoothQuat3P = Quaternionf();
 float smoothIsInAir = 0.f;
+float maxHighSpeed = 80.f;
+float maxHighSpeedDistanceIncrement = 1.f;
+float accelerationCamDistanceMultiplier = 2.38f;
 
 Vector3f up(0.0f, 0.0f, 1.0f);
 Vector3f back(0.0f, -1.0f, 0.0f);
+Vector3f front(0.0f, 1.0f, 0.0f);
+
+Vector2i lastMouseCoords;
+float mouseMoveCountdown = 0.f;
 
 enum eCamType {
 	Smooth3P = 0,
@@ -64,6 +77,68 @@ NativeMenu::Menu menu;
 NativeMenu::MenuControls menuControls;
 
 bool showDebug = false;
+UINT_PTR gamePlayCameraAddr;
+
+bool isSuitableForCam;
+
+float isMouseLooking() {
+	return mouseMoveCountdown > 0.001f;
+}
+
+uintptr_t FindPattern(const char* pattern, const char* mask) {
+	MODULEINFO modInfo = { nullptr };
+	GetModuleInformation(GetCurrentProcess(), GetModuleHandle(nullptr), &modInfo, sizeof(MODULEINFO));
+
+	const char* start_offset = reinterpret_cast<const char *>(modInfo.lpBaseOfDll);
+	const uintptr_t size = static_cast<uintptr_t>(modInfo.SizeOfImage);
+
+	intptr_t pos = 0;
+	const uintptr_t searchLen = static_cast<uintptr_t>(strlen(mask) - 1);
+
+	for (const char* retAddress = start_offset; retAddress < start_offset + size; retAddress++) {
+		if (*retAddress == pattern[pos] || mask[pos] == '?') {
+			if (mask[pos + 1] == '\0') {
+				return (reinterpret_cast<uintptr_t>(retAddress) - searchLen);
+			}
+
+			pos++;
+		}
+		else {
+			pos = 0;
+		}
+	}
+
+	return 0;
+}
+
+float easeInCubic(float t) {
+	return pow(t, 3.f);
+}
+
+float easeOutCubic(float t) {
+	return 1.f - easeInCubic(1.f - t);
+}
+
+inline void vadd_sse(const float *a, const float *b, float *r)
+{
+	_mm_storeu_ps(r, _mm_add_ps(_mm_loadu_ps(a), _mm_loadu_ps(b)));
+}
+
+Vector3 Subtract(Vector3 left, Vector3 right)
+{
+	vadd_sse((float*)&left, (float*)&right, (float*)&left);
+	return left;
+}
+
+Quaternionf negateQuat(Quaternionf q) {
+	return Quaternionf(-q.w(), -q.x(), -q.y(), -q.z());
+}
+
+float Vector3Angle(Vector3f from, Vector3f to)
+{
+	double dot = from.normalized().dot(to.normalized());
+	return (float)((acos(dot)) * (180.0 / PI));
+}
 
 Vector3 getRightVector(Vector3f rotation)
 {
@@ -77,7 +152,34 @@ Vector3 getRightVector(Vector3f rotation)
 	return vec;
 }
 
-// taken from https://github.com/E66666666/GTAVManualTransmission/
+Vector2i getMouseCoords() {
+	int mX = CONTROLS::GET_CONTROL_VALUE(0, 239) - 127 / 127.f * 1280;
+	int mY = CONTROLS::GET_CONTROL_VALUE(0, 240) - 127 / 127.f * 720;
+
+	return Vector2i(mX, mY);
+}
+
+void updateMouseState() {
+	int lastX = lastMouseCoords.x();
+	int lastY = lastMouseCoords.y();
+
+	Vector2i currXY = getMouseCoords();
+	int currX = currXY.x();
+	int currY = currXY.y();
+
+	int movX = abs(lastX - currX);
+	int movY = abs(lastY - currY);
+
+	if (movX > 2.f || movY > 2.f) {
+		mouseMoveCountdown = 1.5f;
+	}
+
+	mouseMoveCountdown = max(0.f, mouseMoveCountdown - SYSTEM::TIMESTEP());
+
+	lastMouseCoords = currXY;
+}
+
+// Color struct taken from https://github.com/E66666666/GTAVManualTransmission/
 struct Color {
 	int R;
 	int G;
@@ -102,7 +204,7 @@ const Color solidPurple = { 127, 0, 255, 255 };
 
 const Color transparentGray = { 75, 75, 75, 75 };
 
-// taken from https://github.com/E66666666/GTAVManualTransmission/
+// showText() taken from https://github.com/E66666666/GTAVManualTransmission/
 void showText(float x, float y, float scale, const char* text, int font, const Color &rgba, bool outline) {
 	UI::SET_TEXT_FONT(font);
 	UI::SET_TEXT_SCALE(scale, scale);
@@ -137,109 +239,23 @@ Vector3f getDimensions(Hash modelHash) {
 
 	Vector3 ret;
 
-	ret.x = max.x - min.x;
-	ret.y = max.y - min.y;
-	ret.z = max.z - min.z;
+	ret = Subtract(max, min);
 
 	return toV3f(ret);
 }
 
-Vector3f getDimensions(Vehicle veh) {
+Vector3f getDimensions() {
 	Hash modelHash = VEHICLE::GET_VEHICLE_LAYOUT_HASH(veh);
 	return getDimensions(modelHash);
 }
 
-void displayBoundingBox(Vehicle veh) {
-	Hash modelHash = VEHICLE::GET_VEHICLE_LAYOUT_HASH(veh);
+float getVehicleAcceleration() {
+	float mag = vehVelocity.norm();
+	float ret = (mag - lastVelocityMagnitude) * SYSTEM::TIMESTEP();
 
-	Vector3 FUR; //Front Upper Right
-	Vector3 BLL; //Back Lower Lelft
-	Vector3 dim; //Vehicle dimensions
-	Vector3 upVector, rightVector, forwardVector, position; //Vehicle position
-	Vector3 min;
-	Vector3 max;
+	lastVelocityMagnitude = mag;
 
-	GAMEPLAY::GET_MODEL_DIMENSIONS(modelHash, &min, &max);
-	//ENTITY::GET_ENTITY_MATRIX(veh, &rightVector, &forwardVector, &upVector, &position); //Blue or red pill
-
-	forwardVector = ENTITY::GET_ENTITY_FORWARD_VECTOR(veh);
-	rightVector = getRightVector(vehRot);
-	upVector = toV3(toV3f(rightVector).cross(toV3f(forwardVector)));
-	position = toV3(vehPos);
-
-																								//Calculate size
-	dim.x = 0.5f*(max.x - min.x);
-	dim.y = 0.5f*(max.y - min.y);
-	dim.z = 0.5f*(max.z - min.z);
-
-	FUR.x = position.x + dim.y*rightVector.x + dim.x*forwardVector.x + dim.z*upVector.x;
-	FUR.y = position.y + dim.y*rightVector.y + dim.x*forwardVector.y + dim.z*upVector.y;
-	FUR.z = position.z + dim.y*rightVector.z + dim.x*forwardVector.z + dim.z*upVector.z;
-	//GAMEPLAY::GET_GROUND_Z_FOR_3D_COORD(FUR.x, FUR.y, FUR.z, &(FUR.z), 0);
-	//FUR.z += 2 * dim.z;
-
-	BLL.x = position.x - dim.y*rightVector.x - dim.x*forwardVector.x - dim.z*upVector.x;
-	BLL.y = position.y - dim.y*rightVector.y - dim.x*forwardVector.y - dim.z*upVector.y;
-	BLL.z = position.z - dim.y*rightVector.z - dim.x*forwardVector.z - dim.z*upVector.z;
-	//GAMEPLAY::GET_GROUND_Z_FOR_3D_COORD(BLL.x, BLL.y, 1000.0, &(BLL.z), 0);
-
-	showText(0.01f, 0.375f, 0.4f, std::to_string(FUR.x).c_str(), 4, solidWhite, true);
-	showText(0.01f, 0.400f, 0.4f, std::to_string(FUR.y).c_str(), 4, solidWhite, true);
-	showText(0.01f, 0.425f, 0.4f, std::to_string(FUR.z).c_str(), 4, solidWhite, true);
-
-	showText(0.01f, 0.475f, 0.4f, std::to_string(BLL.x).c_str(), 4, solidWhite, true);
-	showText(0.01f, 0.500f, 0.4f, std::to_string(BLL.y).c_str(), 4, solidWhite, true);
-	showText(0.01f, 0.525f, 0.4f, std::to_string(BLL.z).c_str(), 4, solidWhite, true);
-
-	//DEBUG
-
-	Vector3 edge1 = BLL;
-	Vector3 edge2;
-	Vector3 edge3;
-	Vector3 edge4;
-	Vector3 edge5 = FUR;
-	Vector3 edge6;
-	Vector3 edge7;
-	Vector3 edge8;
-
-	edge2.x = edge1.x + 2.f * dim.y*rightVector.x;
-	edge2.y = edge1.y + 2.f * dim.y*rightVector.y;
-	edge2.z = edge1.z + 2.f * dim.y*rightVector.z;
-
-	edge3.x = edge2.x + 2.f * dim.z*upVector.x;
-	edge3.y = edge2.y + 2.f * dim.z*upVector.y;
-	edge3.z = edge2.z + 2.f * dim.z*upVector.z;
-
-	edge4.x = edge1.x + 2.f * dim.z*upVector.x;
-	edge4.y = edge1.y + 2.f * dim.z*upVector.y;
-	edge4.z = edge1.z + 2.f * dim.z*upVector.z;
-
-	edge6.x = edge5.x - 2.f * dim.y*rightVector.x;
-	edge6.y = edge5.y - 2.f * dim.y*rightVector.y;
-	edge6.z = edge5.z - 2.f * dim.y*rightVector.z;
-
-	edge7.x = edge6.x - 2.f * dim.z*upVector.x;
-	edge7.y = edge6.y - 2.f * dim.z*upVector.y;
-	edge7.z = edge6.z - 2.f * dim.z*upVector.z;
-
-	edge8.x = edge5.x - 2.f * dim.z*upVector.x;
-	edge8.y = edge5.y - 2.f * dim.z*upVector.y;
-	edge8.z = edge5.z - 2.f * dim.z*upVector.z;
-
-	GRAPHICS::DRAW_LINE(edge1.x, edge1.y, edge1.z, edge2.x, edge2.y, edge2.z, 0, 255, 0, 200);
-	GRAPHICS::DRAW_LINE(edge1.x, edge1.y, edge1.z, edge4.x, edge4.y, edge4.z, 0, 255, 0, 200);
-	GRAPHICS::DRAW_LINE(edge2.x, edge2.y, edge2.z, edge3.x, edge3.y, edge3.z, 0, 255, 0, 200);
-	GRAPHICS::DRAW_LINE(edge3.x, edge3.y, edge3.z, edge4.x, edge4.y, edge4.z, 0, 255, 0, 200);
-
-	GRAPHICS::DRAW_LINE(edge5.x, edge5.y, edge5.z, edge6.x, edge6.y, edge6.z, 0, 255, 0, 200);
-	GRAPHICS::DRAW_LINE(edge5.x, edge5.y, edge5.z, edge8.x, edge8.y, edge8.z, 0, 255, 0, 200);
-	GRAPHICS::DRAW_LINE(edge6.x, edge6.y, edge6.z, edge7.x, edge7.y, edge7.z, 0, 255, 0, 200);
-	GRAPHICS::DRAW_LINE(edge7.x, edge7.y, edge7.z, edge8.x, edge8.y, edge8.z, 0, 255, 0, 200);
-
-	GRAPHICS::DRAW_LINE(edge1.x, edge1.y, edge1.z, edge7.x, edge7.y, edge7.z, 0, 255, 0, 200);
-	GRAPHICS::DRAW_LINE(edge2.x, edge2.y, edge2.z, edge8.x, edge8.y, edge8.z, 0, 255, 0, 200);
-	GRAPHICS::DRAW_LINE(edge3.x, edge3.y, edge3.z, edge5.x, edge5.y, edge5.z, 0, 255, 0, 200);
-	GRAPHICS::DRAW_LINE(edge4.x, edge4.y, edge4.z, edge6.x, edge6.y, edge6.z, 0, 255, 0, 200);
+	return ret;
 }
 
 void nextCam() {
@@ -249,7 +265,14 @@ void nextCam() {
 
 void firstInit()
 {
+	UINT_PTR address = FindPattern("\x48\x8B\xC7\xF3\x0F\x10\x0D", "xxxxxxx") - 0x1D;
+	address = address + *reinterpret_cast<int*>(address) + 4;
+	gamePlayCameraAddr = *reinterpret_cast<UINT_PTR*>(*reinterpret_cast<int*>(address + 3) + address + 7);
+}
 
+Vector3f getGameplayCameraDirection() {
+	const auto data = reinterpret_cast<const float *>(gamePlayCameraAddr + 0x200);
+	return Vector3f(data[0], data[1], data[2]);
 }
 
 float AngleInRad(Vector3f vec1, Vector3f vec2)
@@ -463,6 +486,7 @@ void updateVehicleProperties()
 {
 	int vehClass = VEHICLE::GET_VEHICLE_CLASS(veh);
 	isBike = vehClass == eVehicleClass::VehicleClassCycles || vehClass == eVehicleClass::VehicleClassMotorcycles;
+	isSuitableForCam = vehClass != eVehicleClass::VehicleClassTrains && vehClass != eVehicleClass::VehicleClassPlanes && vehClass != eVehicleClass::VehicleClassHelicopters && vehClass != eVehicleClass::VehicleClassBoats;
 
 	Vector3f dimensions = getDimensions(veh);
 
@@ -549,22 +573,41 @@ void updateCameraSmooth3P() {
 
 	if (isBike && vehSpeed >= 3.f) 
 	{
+		if (smoothQuat3P.dot(velocityQuat3P) < 0.f)
+			smoothQuat3P = negateQuat(smoothQuat3P);
+
 		smoothQuat3P = smoothQuat3P.slerp(rotationSpeed3P * getDeltaTime(), velocityQuat3P);
 	}
 	else
 	{
+		if (smoothQuat3P.dot(vehQuat) < 0.f)
+			smoothQuat3P = negateQuat(smoothQuat3P);
 		smoothQuat3P = smoothQuat3P.slerp(rotationSpeed3P * getDeltaTime(), vehQuat);
 	}
 
-	//float speedLerpFactor = clamp(vehSpeed / 50.f, 1.f, 1.0005f) - 1.f;
-	//float forwardSpeed = vehVelocity.dot(vehForwardVector);
-	//if (forwardSpeed < 0.f)
-	//	speedLerpFactor = 0.f;
-
-	//Quaternionf finalQuat = lerp(max(speedLerpFactor, smoothIsInAir), smoothQuat3P, velocityQuat3P);
+	if (smoothQuat3P.dot(velocityQuat3P) < 0.f)
+		smoothQuat3P = negateQuat(smoothQuat3P);
 	Quaternionf finalQuat = lerp(smoothIsInAir, smoothQuat3P, velocityQuat3P);
 
-	setCamPos(customCam, posCenter + extraCamHeight + (finalQuat * back * longitudeOffset3P));
+	if (smoothIsMouseLooking > 0.001f) {
+		finalQuat = lerp(smoothIsMouseLooking, finalQuat, lookRotation(getGameplayCameraDirection()));
+	}
+
+	float finalDistMult = 1.f;
+	if (vehSpeed > 0.15f)
+	{
+		// TODO Optimize?
+		finalDistMult = Vector3Angle(finalQuat * front, vehVelocity) /* / 180f */ * 0.0055555555555556f;
+		finalDistMult = lerp(1.f, -1.f, finalDistMult);
+	}
+
+	float factor = vehSpeed / maxHighSpeed;
+	float currentDistanceIncrement = lerp(0.f, maxHighSpeedDistanceIncrement, easeOutCubic(factor));
+
+	factor = getVehicleAcceleration() / (maxHighSpeed * 10.f);
+	currentDistanceIncrement += lerp(0.f, accelerationCamDistanceMultiplier, easeOutCubic(factor));
+
+	setCamPos(customCam, posCenter + extraCamHeight + (finalQuat * back * (longitudeOffset3P + (currentDistanceIncrement * finalDistMult))));
 	camPointAt(customCam, posCenter);
 }
 
@@ -599,20 +642,14 @@ void DisableCustomCamera()
 	haltCurrentCamera();
 }
 
-void drawDebug() 
-{
-	Vector3f dimensions = getDimensions(veh);
-	showText(0.01f, 0.275f, 0.4f, std::to_string(dimensions.x()).c_str(), 4, solidWhite, true);
-	showText(0.01f, 0.300f, 0.4f, std::to_string(dimensions.y()).c_str(), 4, solidWhite, true);
-	showText(0.01f, 0.325f, 0.4f, std::to_string(dimensions.z()).c_str(), 4, solidWhite, true);
-
-	displayBoundingBox(veh);
-}
-
 void update()
 {
 	if (IsKeyJustUp(str2key("F9"))) {
 		showDebug = !showDebug;
+	}
+
+	if (showDebug) {
+		showText(0.01f, 0.200f, 0.4, ("MouseLookCountDown: " + std::to_string(mouseMoveCountdown)).c_str(), 4, solidWhite, true);
 	}
 
 	Player player = PLAYER::PLAYER_ID();
@@ -632,6 +669,8 @@ void update()
 		return;
 	}
 
+	smoothIsMouseLooking = lerp(smoothIsMouseLooking, isMouseLooking() ? 1.f : 0.f, 8.f * SYSTEM::TIMESTEP());
+
 	// check if player is in a vehicle
 	if (PED::IS_PED_IN_ANY_VEHICLE(playerPed, FALSE))
 	{
@@ -641,27 +680,36 @@ void update()
 			veh = newVeh;
 			updateVehicleProperties();
 		}
-		updateVehicleVars();
+		if (isSuitableForCam) {
+			updateVehicleVars();
 
-		if (!camInitialized) {
-			setupCustomCamera();
+			if (!camInitialized) {
+				setupCustomCamera();
+			}
+
+			updateMouseState();
+
+			if (CONTROLS::IS_CONTROL_JUST_PRESSED(2, eControl::ControlNextCamera)) {
+				haltCurrentCamera();
+				nextCam();
+				setupCurrentCamera();
+			}
+
+			updateCustomCamera();
 		}
-
-		if (CONTROLS::IS_CONTROL_JUST_PRESSED(2, eControl::ControlNextCamera)) {
-			haltCurrentCamera();
-			nextCam();
-			setupCurrentCamera();
-		}
-
-		updateCustomCamera();
-
-		if (showDebug) {
-			drawDebug();
+		else
+		{
+			mouseMoveCountdown = 0.f;
+			smoothIsMouseLooking = 0.f;
+			DisableCustomCamera();
+			return;
 		}
 	}
 	else
 	{
 		veh = -1;
+		mouseMoveCountdown = 0.f;
+		smoothIsMouseLooking = 0.f;
 		DisableCustomCamera();
 		return;
 	}
@@ -670,6 +718,7 @@ void update()
 void main()
 {
 	firstInit();
+
 	while (true)
 	{
 		update();
