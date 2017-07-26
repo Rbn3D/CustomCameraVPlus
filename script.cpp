@@ -50,6 +50,10 @@ float maxRotSpeedAngle3P = 90.0f;
 
 float currentRotSpeed3P = 2.0f;
 
+float useRoadSurfaceNormal = true;
+Vector3f cachedSurfaceNormal;
+Vector3f smoothSurfaceNormal;
+
 Vector3f smoothVelocity = Vector3f();
 Quaternionf velocityQuat3P = Quaternionf();
 Quaternionf smoothQuat3P = Quaternionf();
@@ -59,11 +63,17 @@ float maxHighSpeedDistanceIncrement = 1.f;
 float accelerationCamDistanceMultiplier = 2.38f;
 
 Vector3f up(0.0f, 0.0f, 1.0f);
+Vector3f down(0.0f, 0.0f, -1.0f);
 Vector3f back(0.0f, -1.0f, 0.0f);
 Vector3f front(0.0f, 1.0f, 0.0f);
 
 Vector2i lastMouseCoords;
 float mouseMoveCountdown = 0.f;
+
+bool isAiming = false;
+float smoothIsAiming = 0.f;
+
+bool customCamEnabled = true;
 
 enum eCamType {
 	Smooth3P = 0,
@@ -170,7 +180,7 @@ void updateMouseState() {
 	int movX = abs(lastX - currX);
 	int movY = abs(lastY - currY);
 
-	if (movX > 2.f || movY > 2.f) {
+	if (isAiming ||movX > 2.f || movY > 2.f) {
 		mouseMoveCountdown = 1.5f;
 	}
 
@@ -273,6 +283,12 @@ void firstInit()
 Vector3f getGameplayCameraDirection() {
 	const auto data = reinterpret_cast<const float *>(gamePlayCameraAddr + 0x200);
 	return Vector3f(data[0], data[1], data[2]);
+}
+
+Vector3f getGameplayCameraPos() {
+	Vector3 camPos = CAM::GET_GAMEPLAY_CAM_COORD();
+
+	return Vector3f(camPos.x, camPos.y, camPos.z);
 }
 
 float AngleInRad(Vector3f vec1, Vector3f vec2)
@@ -509,14 +525,45 @@ void updateVehicleVars()
 	smoothIsInAir = lerp(smoothIsInAir, (ENTITY::IS_ENTITY_IN_AIR(veh) || ENTITY::IS_ENTITY_UPSIDEDOWN(veh)) ? 1.f : 0.f, 2.f * getDeltaTime());
 }
 
+Quaternionf getSurfaceNormalRotation() {
+
+	Vector3f rightVector = toV3f(getRightVector(vehRot));
+
+	Vector3f source = vehPos;
+	Vector3f direction = down;
+	float maxDistance = 4.f;
+	Vector3f target = source + direction * maxDistance;
+
+	int ray = WORLDPROBE::_START_SHAPE_TEST_RAY(source.x(), source.y(), source.z(), target.x(), target.y(), target.z(), 1, veh, 7);
+
+	Vector3 endCoords, surfaceNormal;
+	BOOL hit;
+	Entity entityHit = 0;
+
+	WORLDPROBE::GET_SHAPE_TEST_RESULT(ray, &hit, &endCoords, &surfaceNormal, &entityHit);
+
+	if (hit)
+	{
+		cachedSurfaceNormal = toV3f(surfaceNormal);
+	}
+	smoothSurfaceNormal = lerp(smoothSurfaceNormal, cachedSurfaceNormal, 3.2f * SYSTEM::TIMESTEP());
+
+	Vector3f raycastDir = smoothSurfaceNormal.cross(rightVector).normalized();
+
+	return lookRotation(raycastDir);
+}
+
 void setupCurrentCamera() {
 	if (currentCam == eCamType::DriverSeat1P) {
 		ENTITY::SET_ENTITY_ALPHA(playerPed, 0, false);
-		CAM::SET_CAM_NEAR_CLIP(customCam, 0.1f);
-		CAM::SET_CAM_FAR_CLIP(customCam, 750.0f);
+		CAM::SET_CAM_NEAR_CLIP(customCam, 0.05f);
+		CAM::SET_CAM_FAR_CLIP(customCam, 740.0f);
+		CAM::SET_CAM_FOV(customCam, 85.f);
 	}
 	else if (currentCam == eCamType::Smooth3P) {
-
+		CAM::SET_CAM_NEAR_CLIP(customCam, 0.15f);
+		CAM::SET_CAM_FAR_CLIP(customCam, 800.0f);
+		CAM::SET_CAM_FOV(customCam, 75.f);
 	}
 
 }
@@ -532,7 +579,7 @@ void setupCustomCamera() {
 }
 
 void updateCameraDriverSeat() {
-	char *boneName = (isBike ? "seat_f" : "seat_dside_f");
+	char *boneName = (isBike ? "seat_f" : "steeringwheel");
 
 	Vector3f seatPos = toV3f(ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(veh, ENTITY::GET_ENTITY_BONE_INDEX_BY_NAME(veh, boneName)));
 	Vector3f forwardVector = toV3f(ENTITY::GET_ENTITY_FORWARD_VECTOR(veh));
@@ -543,9 +590,22 @@ void updateCameraDriverSeat() {
 	if (isBike)
 		camPos = seatPos + (upVector * 0.4f) + (forwardVector * 0.45f);
 	else
-		camPos = seatPos + (upVector * 0.69f);
+		camPos = seatPos + (upVector * 0.35f) + (forwardVector  * -0.25f);
 
 	Vector3f pointAt = camPos + forwardVector;
+
+	if (smoothIsMouseLooking > 0.001f) {
+		pointAt = camPos + getGameplayCameraDirection();
+	}
+
+	if (smoothIsAiming > 0.00001f) {
+		float currentFov = lerp(fov, 75.f, smoothIsAiming);
+		CAM::SET_CAM_FOV(customCam, currentFov);
+	}
+
+	if (isAiming) {
+		UI::SHOW_HUD_COMPONENT_THIS_FRAME(eHudComponent::HudComponentReticle);
+	}
 
 	CAM::SET_CAM_COORD(customCam, camPos.x(), camPos.y(), camPos.z());
 	CAM::POINT_CAM_AT_COORD(customCam, pointAt.x(), pointAt.y(), pointAt.z());
@@ -569,7 +629,16 @@ void updateCameraSmooth3P() {
 		velocityQuat3P = lookRotation(smoothVelocity);
 	}
 
-	Quaternionf vehQuat = getEntityQuaternion(veh);
+	Quaternionf vehQuat;
+
+	if (useRoadSurfaceNormal) {
+		vehQuat = getSurfaceNormalRotation();
+	}
+	else 
+	{
+		vehQuat = getEntityQuaternion(veh);
+
+	}
 
 	if (isBike && vehSpeed >= 3.f) 
 	{
@@ -593,6 +662,15 @@ void updateCameraSmooth3P() {
 		finalQuat = lerp(smoothIsMouseLooking, finalQuat, lookRotation(getGameplayCameraDirection()));
 	}
 
+	if (smoothIsAiming > 0.00001f) {
+		float currentFov = lerp(fov, 60.f, smoothIsAiming);
+		CAM::SET_CAM_FOV(customCam, currentFov);
+	}
+
+	if (isAiming) {
+		UI::SHOW_HUD_COMPONENT_THIS_FRAME(eHudComponent::HudComponentReticle);
+	}
+
 	float finalDistMult = 1.f;
 	if (vehSpeed > 0.15f)
 	{
@@ -607,7 +685,26 @@ void updateCameraSmooth3P() {
 	factor = getVehicleAcceleration() / (maxHighSpeed * 10.f);
 	currentDistanceIncrement += lerp(0.f, accelerationCamDistanceMultiplier, easeOutCubic(factor));
 
-	setCamPos(customCam, posCenter + extraCamHeight + (finalQuat * back * (longitudeOffset3P + (currentDistanceIncrement * finalDistMult))));
+	Vector3f camPos = posCenter + extraCamHeight + (finalQuat * back * (longitudeOffset3P + (currentDistanceIncrement * finalDistMult)));
+	setCamPos(customCam, camPos);
+
+	//if (smoothIsMouseLooking > 0.001f) {
+	//	Vector3f camPos = lerp(camPos, getGameplayCameraPos(), smoothIsMouseLooking);
+	//	setCamPos(customCam, camPos);
+	//}
+
+	int ray = WORLDPROBE::_START_SHAPE_TEST_RAY(posCenter.x(), posCenter.y(), posCenter.z(), camPos.x(), camPos.y(), camPos.z(), 1, veh, 7);
+
+	Vector3 endCoords, surfaceNormal; 
+	BOOL hit; 
+	Entity entityHit = 0; 
+
+	WORLDPROBE::GET_SHAPE_TEST_RESULT(ray, &hit, &endCoords, &surfaceNormal, &entityHit);
+
+	if (hit) {
+		setCamPos(customCam, toV3f(endCoords) + (finalQuat * front * 0.01f));
+	}
+
 	camPointAt(customCam, posCenter);
 }
 
@@ -648,6 +745,10 @@ void update()
 		showDebug = !showDebug;
 	}
 
+	if (IsKeyJustUp(str2key("1"))) {
+		customCamEnabled = !customCamEnabled;
+	}
+
 	if (showDebug) {
 		showText(0.01f, 0.200f, 0.4, ("MouseLookCountDown: " + std::to_string(mouseMoveCountdown)).c_str(), 4, solidWhite, true);
 	}
@@ -671,6 +772,9 @@ void update()
 
 	smoothIsMouseLooking = lerp(smoothIsMouseLooking, isMouseLooking() ? 1.f : 0.f, 8.f * SYSTEM::TIMESTEP());
 
+	isAiming = PLAYER::IS_PLAYER_FREE_AIMING(player);
+	smoothIsAiming = lerp(smoothIsAiming, isAiming ? 1.f : 0.f, 8.f * SYSTEM::TIMESTEP());
+
 	// check if player is in a vehicle
 	if (PED::IS_PED_IN_ANY_VEHICLE(playerPed, FALSE))
 	{
@@ -680,7 +784,11 @@ void update()
 			veh = newVeh;
 			updateVehicleProperties();
 		}
-		if (isSuitableForCam) {
+		if (isSuitableForCam && customCamEnabled) {
+
+			CONTROLS::DISABLE_CONTROL_ACTION(0, eControl::ControlNextCamera, true);
+			CAM::SET_FOLLOW_VEHICLE_CAM_VIEW_MODE(2);
+
 			updateVehicleVars();
 
 			if (!camInitialized) {
@@ -689,7 +797,7 @@ void update()
 
 			updateMouseState();
 
-			if (CONTROLS::IS_CONTROL_JUST_PRESSED(2, eControl::ControlNextCamera)) {
+			if (CONTROLS::IS_DISABLED_CONTROL_JUST_PRESSED(2, eControl::ControlNextCamera)) {
 				haltCurrentCamera();
 				nextCam();
 				setupCurrentCamera();
