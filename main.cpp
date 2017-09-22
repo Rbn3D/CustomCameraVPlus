@@ -15,6 +15,7 @@ BOOL APIENTRY DllMain(HMODULE hInstance, DWORD reason, LPVOID lpReserved)
 		scriptRegister(hInstance, ScriptMain);
 		break;
 	case DLL_PROCESS_DETACH:
+		DisableCustomCamera();
 		scriptUnregister(hInstance);
 		break;
 	}		

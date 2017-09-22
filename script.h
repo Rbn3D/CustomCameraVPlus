@@ -19,4 +19,6 @@
 #include "..\..\inc\Eigen\Dense"
 
 
+void DisableCustomCamera();
+
 void ScriptMain();
