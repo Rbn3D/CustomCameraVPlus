@@ -21,4 +21,10 @@
 
 void DisableCustomCamera();
 
+float getVehicleLongitude(Vehicle vehicle);
+
+float getVehicleHeight(Vehicle vehicle);
+
 void ScriptMain();
+
+void PrintDebugVar();
