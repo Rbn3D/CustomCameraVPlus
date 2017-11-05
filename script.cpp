@@ -65,11 +65,11 @@ float rotationSpeed3P = 4.75f;
 //float variableRotLerpSpeed = 1.9f;
 
 bool useVariableRotSpeed3P = true;
-float minRotSpeed3P = 4.1f;
-float maxRotSpeed3P = 5.4f;
+float RotSpeedFast3P = 4.8f;
+float RotSpeedSlow3P = 3.4f;
 float maxRotSpeedAngle3P = 90.0f;
 
-float variableRotLerpSpeed = 7.75f;
+//float variableRotLerpSpeed = 7.75f;
 
 float currentRotSpeed3P = 2.0f;
 
@@ -719,11 +719,11 @@ void updateVehicleProperties()
 	longitudeOffset3P = getVehicleLongitude(veh) + 0.25f;
 	heightOffset3P = max(1.40f, getVehicleHeight(veh) + 0.130f);
 
-	if (longitudeOffset3P >= 1000.f) // No idea why sometimes longitude and height are multiplied by 1000, but this will fix it
-		longitudeOffset3P /= 1000.f;
+	//while (longitudeOffset3P >= 1000.f) // No idea why sometimes longitude and height are multiplied by 1000, but this will fix it
+	//	longitudeOffset3P /= 1000.f;
 
-	if(heightOffset3P > 100.f) // No idea why sometimes longitude and height are multiplied by 1000, but this will fix it
-		heightOffset3P /= 10000.f;
+	//while (heightOffset3P > 100.f) // No idea why sometimes longitude and height are multiplied by 1000, but this will fix it
+	//	heightOffset3P /= 10000.f;
 
 	if (heightOffset3P >= 2.45f) {
 		heightOffset3P += 0.7f;
@@ -731,8 +731,8 @@ void updateVehicleProperties()
 	}
 
 	if (isBike) {
-		longitudeOffset3P += .25f;
-		heightOffset3P += .25f;
+		longitudeOffset3P += 1.65f;
+		heightOffset3P = 1.38f;
 	}
 
 	vehHasTowBone = vehHasBone("tow_arm");
@@ -742,7 +742,7 @@ void updateVehicleProperties()
 void updateVehicleVars() 
 {
 	vehPos = toV3f(ENTITY::GET_ENTITY_COORDS(veh, true));
-	vehRot = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, false));
+	vehRot = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
 	vehVelocity = toV3f(ENTITY::GET_ENTITY_VELOCITY(veh));
 	vehSpeed = ENTITY::GET_ENTITY_SPEED(veh);
 	smoothVelocity = lerp(smoothVelocity, vehVelocity, 10.f * getDeltaTime());
@@ -819,7 +819,7 @@ void setupCurrentCamera() {
 		CAM::SET_CAM_NEAR_CLIP(customCam, 0.05f);
 		CAM::SET_CAM_FAR_CLIP(customCam, 740.0f);
 		CAM::SET_CAM_FOV(customCam, 90.f);
-		smoothRotSeat = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 0));
+		smoothRotSeat = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
 	}
 	else if (currentCam == eCamType::Smooth3P) {
 		CAM::SET_CAM_NEAR_CLIP(customCam, 0.15f);
@@ -916,7 +916,7 @@ void updateCameraDriverSeat() {
 
 			if (smoothIsMouseLooking > 0.001f) {
 				Vector3f gameplayCamRot = toV3f(CAM::GET_GAMEPLAY_CAM_ROT(2));
-				Vector3f finalRotSeat = lerp(smoothRotSeat, gameplayCamRot, smoothIsMouseLooking);
+				Vector3f finalRotSeat = Vector3fLerpAngle(smoothRotSeat, gameplayCamRot, smoothIsMouseLooking);
 				CAM::SET_CAM_ROT(customCam, finalRotSeat.x(), finalRotSeat.y(), finalRotSeat.z(), 2);
 			}
 			else
@@ -929,23 +929,22 @@ void updateCameraDriverSeat() {
 void updateCameraSmooth3P() {
 	Vector3f extraCamHeight = up * 0.11f;
 	Vector3f posCenter = vehPos + (up * heightOffset3P);
-	Vector3f vehForwardVector = toV3f(ENTITY::GET_ENTITY_FORWARD_VECTOR(veh));
 
 	float rotSpeed = rotationSpeed3P;
 	if (useVariableRotSpeed3P)
 	{
-		Vector3f forward = vehForwardVector.normalized();
-		Vector3f velo = vehVelocity.normalized();
+		//Vector3f forward = vehForwardVector.normalized();
+		//Vector3f velo = vehVelocity.normalized();
 
-		float dot = vehForwardVector.dot(velo);
+		//float dot = vehForwardVector.dot(velo);
 
-		if (dot < 0.f)
-			velo = -velo;
+		//if (dot < 0.f)
+		//	velo = -velo;
 
 		//Vector3f correctedVelocity = vehSpeed > 0.1f ? vehVelocity : vehForwardVector;
 		//float desiredRootSpeed = lerp(minRotSpeed3P, maxRotSpeed3P, clamp01(easeInCubic(AngleBetweenVectors(forward, velo))));
-		float desiredRootSpeed = lerp(minRotSpeed3P, maxRotSpeed3P, clamp01(easeOutCubic(AngleBetweenVectors(forward, velo))));
-		currentRotSpeed3P = lerp(currentRotSpeed3P, desiredRootSpeed, variableRotLerpSpeed * getDeltaTime());
+		//float desiredRootSpeed = lerp(RotSpeedFast3P, RotSpeedSlow3P, clamp01(easeOutCubic(AngleBetweenVectors(forward, velo))));
+		currentRotSpeed3P = lerp(RotSpeedSlow3P, RotSpeedFast3P, clamp01(easeOutCubic(vehSpeed / (maxHighSpeed * 0.5f))));
 	}
 
 	Quaternionf vehQuat;
@@ -1254,9 +1253,9 @@ void updateTimers() {
 
 void update()
 {
-	if (IsKeyJustUp(str2key("F9"))) {
-		showDebug = !showDebug;
-	}
+	//if (IsKeyJustUp(str2key("F9"))) {
+	//	showDebug = !showDebug;
+	//}
 
 	if (IsKeyJustUp(str2key("1"))) {
 		customCamEnabled = !customCamEnabled;
