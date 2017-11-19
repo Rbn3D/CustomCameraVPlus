@@ -37,6 +37,7 @@ float lastVelocityMagnitude;
 Vector3f vehForwardVector;
 Vector3f vehRightVector;
 Vector3f vehUpVector;
+Vector3f vehRelativeRotation;
 
 float vehAcceleration = 0.f;
 float smoothAccelerationFactor = 0.f;
@@ -46,8 +47,13 @@ bool vehHasTowBone = false;
 bool vehHasTrailerBone = false;
 
 Camera customCam = NULL;
-float fov3P = 85.f;
-float fov1P = 90.f;
+//float fov3P = 85.f;
+//float fov1P = 90.f;
+float fov3P = 80.f;
+float fov1P = 80.f;
+float fov1PAiming = 70.f;
+float fov3PAiming = 70.f;
+float distanceOffset = 0.08f;
 const float PI = 3.1415926535897932f;
 int lastVehHash = -1;
 bool isBike = false;
@@ -441,6 +447,11 @@ Vector3f getGameplayCameraDirection() {
 	return Vector3f(data[0], data[1], data[2]);
 }
 
+Vector3f getGameplayCameraRightVector() {
+	const auto data = reinterpret_cast<const float *>(gamePlayCameraAddr + 0x1F0);
+	return Vector3f(data[0], data[1], data[2]);
+}
+
 void setGameplayCameraDirection(Vector3f dir) {
 	const auto address = (Vector3*)gamePlayCameraAddr + 0x200;
 
@@ -457,6 +468,20 @@ Vector3f getGameplayCameraPos() {
 	return Vector3f(data[0], data[1], data[2]);
 }
 
+Vector3f getCameraForwardVector(Camera cam) {
+	Vector3f rotation = toV3f(CAM::GET_CAM_ROT(cam, 2));
+
+	double num1 = (double)rotation.x() / (180.0f / PI);
+	double num2 = (double)rotation.z() / (180.0f / PI);
+	double num3 = abs(cos(num1));
+	return Vector3f((float)-(sin(num2) * num3), (float)(cos(num2) * num3), (float)sin(num1));
+}
+
+Vector3f getCameraRightVector(Camera cam) {
+	Vector3f rotation = toV3f(CAM::GET_CAM_ROT(cam, 2));
+
+	return toV3f(getRightVector(rotation));
+}
 
 float dot(Vector3f a, Vector3f b)  //calculates dot product of a and b
 {
@@ -716,8 +741,8 @@ void updateVehicleProperties()
 	isBike = vehClass == eVehicleClass::VehicleClassCycles || vehClass == eVehicleClass::VehicleClassMotorcycles;
 	isSuitableForCam = vehClass != eVehicleClass::VehicleClassTrains && vehClass != eVehicleClass::VehicleClassPlanes && vehClass != eVehicleClass::VehicleClassHelicopters && vehClass != eVehicleClass::VehicleClassBoats;
 
-	longitudeOffset3P = getVehicleLongitude(veh) + 0.25f;
-	heightOffset3P = max(1.40f, getVehicleHeight(veh) + 0.130f);
+	longitudeOffset3P = getVehicleLongitude(veh) + distanceOffset;
+	heightOffset3P = max(1.40f, getVehicleHeight(veh) + 0.118f);
 
 	//while (longitudeOffset3P >= 1000.f) // No idea why sometimes longitude and height are multiplied by 1000, but this will fix it
 	//	longitudeOffset3P /= 1000.f;
@@ -751,6 +776,7 @@ void updateVehicleVars()
 	vehRightVector = toV3f(getRightVector(vehRot));
 	vehUpVector = vehRightVector.cross(vehForwardVector);
 	vehAcceleration = getVehicleAcceleration();
+	vehRelativeRotation = toV3f(ENTITY::GET_ENTITY_SPEED_VECTOR(veh, true));
 }
 
 Vector3f getLatVector() {
@@ -875,7 +901,7 @@ void updateCameraDriverSeat() {
 	}
 
 	if (smoothIsAiming > 0.00001f) {
-		float currentFov = lerp(fov1P, 75.f, smoothIsAiming);
+		float currentFov = lerp(fov1P, fov1PAiming, smoothIsAiming);
 		CAM::SET_CAM_FOV(customCam, currentFov);
 	}
 
@@ -1001,7 +1027,7 @@ void updateCameraSmooth3P() {
 	finalQuat = slerp(finalQuat, mouseLookRot, smoothIsMouseLooking);
 
 	if (smoothIsAiming > 0.00001f) {
-		float currentFov = lerp(fov3P, 60.f, smoothIsAiming);
+		float currentFov = lerp(fov3P, fov3PAiming, smoothIsAiming);
 		CAM::SET_CAM_FOV(customCam, currentFov);
 	}
 
@@ -1030,9 +1056,11 @@ void updateCameraSmooth3P() {
 
 	Vector3f relativeLookDir = back;
 
+	bool lookBehind = false;
 	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind)) {
 		relativeLookDir = front;
 		finalDistMult *= -1.f;
+		bool lookBehind = true;
 	}
 
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45f * getDeltaTime());
@@ -1040,8 +1068,32 @@ void updateCameraSmooth3P() {
 
 	Vector3f V3CurrentTowHeightIncrement = up * currentTowHeightIncrement;
 
+	//Vector3f camPos = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat * relativeLookDir * (longitudeOffset3P + (currentDistanceIncrement * finalDistMult) + currentTowLongitudeIncrement));
 	Vector3f camPos = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat * relativeLookDir * (longitudeOffset3P + (currentDistanceIncrement * finalDistMult) + currentTowLongitudeIncrement));
-	setCamPos(customCam, camPos);
+
+	Vector3f offsetLatPoint = Vector3f(0.f,0.f,0.f);
+
+	if (!lookBehind && !isBike)
+	{
+		Vector3f camForward = getCameraForwardVector(customCam).normalized();
+		Vector3f camRight = getCameraRightVector(customCam).normalized();
+		//Vector3f latVector = lerp(vehRightVector, camRight, 0.5f);
+		Vector3f latVector = camRight;
+
+		float angle = GAMEPLAY::GET_ANGLE_BETWEEN_2D_VECTORS(camForward.x(), camForward.y(), vehForwardVector.x(), vehForwardVector.y());
+		float maxAngle = 28.f;
+		angle = clamp(angle, 0.f, maxAngle);
+
+		angle = lerp(0.f, maxAngle, easeInCubic(unlerp(0.f, maxAngle, angle))); // apply easing
+
+		if (distanceOnAxisNoAbs(camPos, vehPos, latVector) < 0.f)
+			angle = -angle;
+
+		angle = angle * 0.003f;
+		//showText(0.01f, 0.200f, 0.4, ("angle: " + std::to_string(angle)).c_str(), 4, solidWhite, true);
+		offsetLatPoint = latVector * (angle * (1.f - smoothIsMouseLooking) * (1.f - smoothIsInAir) * (1.f - smoothIsAiming) * clamp01((vehSpeed - 0.002f) * 0.1f) * clamp01(1.f - ((vehSpeed * 0.01f))));
+	}
+	setCamPos(customCam, camPos + (offsetLatPoint * 1.5f));
 
 	//if (smoothIsMouseLooking > 0.001f) {
 	//	Vector3f camPos = lerp(camPos, getGameplayCameraPos(), smoothIsMouseLooking);
@@ -1062,7 +1114,7 @@ void updateCameraSmooth3P() {
 		setCamPos(customCam, toV3f(endCoords) + (finalQuat * front * 0.01f));
 	}
 
-	camPointAt(customCam, finalPosCenter + (up * .228f));
+	camPointAt(customCam, finalPosCenter + (up * .168f) + (offsetLatPoint));
 }
 
 void updateCustomCamera() 
