@@ -18,6 +18,12 @@
 #include <iostream>
 #include "..\..\inc\Eigen\Dense"
 
+using namespace Eigen;
+
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif 
+
 
 void DisableCustomCamera();
 
@@ -28,3 +34,7 @@ float getVehicleHeight(Vehicle vehicle);
 void ScriptMain();
 
 void PrintDebugVar();
+
+void lookBehind1p();
+
+Vector3f GetBonePos(Entity entity, char * boneName);

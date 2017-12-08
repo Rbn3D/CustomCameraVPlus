@@ -16,13 +16,13 @@ This is a C++ version of my [Custom Camera V](https://github.com/Rbn3D/CustomCam
 * GTA V for PC (obviously)
 * Script Hook V
 
-### The script in action ###
+### The script in action (video) ###
 
-None yet. Will record a video soon...
+[![Custom Camera V Plus](http://img.youtube.com/vi/KFz06w7fsjM/0.jpg)](http://www.youtube.com/watch?v=KFz06w7fsjM "Custom Camera V Plus")
 
 ### Download ###
 
-TODO
+https://www.gta5-mods.com/scripts/custom-camera-v-plus
 
 ### Usage ###
 
@@ -38,4 +38,7 @@ TODO
 
 ### Issues? ###
 
-TODO
+
+Report issues and errors here:
+
+https://github.com/Rbn3D/CustomCameraVPlus/issues

@@ -1,0 +1,15 @@
+Requirements:
+
+* GTA V PC
+* Latest Script Hook V by Alexander Blade
+
+Installation:
+
+* Copy CustomCameraVPlus.asi to root GTA V folder.
+
+Usage:
+
+* Enter on any vehicle (except boat, helis and planes) and custom camera will be automatically enabled
+* Look around, aim and shoot just like with the built-in camera.
+* Switch between 3rd and 1st person view by pressing V (or other key mapped to switch views)
+* Toggle mod enabled by pressing 1.
