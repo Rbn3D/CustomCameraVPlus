@@ -10,7 +10,9 @@ This is a C++ version of my [Custom Camera V](https://github.com/Rbn3D/CustomCam
 * Allows aim/shooting and look around (only mouse for now)
 * Reworked system to update camera position and rotation. Much improved since *Custom Camera V*
 * Nice feeling of speed
+* Look behind by by pressing "Look Behind" button! (key "C" by default)
 * Supports big vehicles, and even vehicles towing another vehicles
+* Customizable FOV and other settings via INI file
 
 ### Requirements ###
 * GTA V for PC (obviously)
@@ -26,9 +28,12 @@ https://www.gta5-mods.com/scripts/custom-camera-v-plus
 
 ### Usage ###
 
-* While on a vechicle (all vehicles supported except planes, helis and boats), press 1 to enable/disable Custom Camera V Plus
-* Shooting: aim and shoot just like in the built-in camera (only mouse for now)
-* Free look: look-around just like in the built-in camera (only mouse for now)
+* Enter on any vehicle (except boat, helis and planes) and custom camera will be automatically enabled
+* Look around, aim and shoot just like with the built-in camera.
+* Switch between 3rd and 1st person view by pressing V (or other key mapped to switch views)
+* Look behind by pressing C (or other key mapped to look behind)
+* Toggle mod enabled by pressing 1.
+* Reload ini settings by pressing F10.
 
 ### Recommended third party mods to use with Custom Camera V ###
 
