@@ -6,6 +6,7 @@ Requirements:
 Installation:
 
 * Copy CustomCameraVPlus.asi to root GTA V folder.
+* Copy CustomCameraVPlus.ini to root GTA V folder.
 
 Usage:
 
@@ -13,3 +14,4 @@ Usage:
 * Look around, aim and shoot just like with the built-in camera.
 * Switch between 3rd and 1st person view by pressing V (or other key mapped to switch views)
 * Toggle mod enabled by pressing 1.
+* Reload ini settings by pressing F10.

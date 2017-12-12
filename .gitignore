@@ -50,3 +50,6 @@ Temporary Items
 /[Bb]in
 /[Oo]bj
 /[Tt]mp
+
+# Make distributable zip batch file
+zipdist.bat
