@@ -18,6 +18,9 @@
 #include <iostream>
 #include "..\..\inc\Eigen\Dense"
 
+// SimpleINI
+#include "..\..\inc\simpleini\SimpleIni.h"
+
 using namespace Eigen;
 
 #ifndef M_PI

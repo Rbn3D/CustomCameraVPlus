@@ -52,7 +52,7 @@ float fov3P = 77.5f;
 float fov1P = 77.5F;
 float fov1PAiming = 60.f;
 float fov3PAiming = 60.f;
-float distanceOffset = 0.08f;
+float distanceOffset = 0.f;
 const float PI = 3.1415926535897932f;
 int lastVehHash = -1;
 bool isBike = false;
@@ -91,8 +91,8 @@ Vector3f smoothRotSeat = Vector3f();
 Quaternionf smoothQuatSeat = Quaternionf();
 float smoothIsInAir = 0.f;
 float maxHighSpeed = 130.f;
-float maxHighSpeedDistanceIncrement = 1.8f;
-float accelerationCamDistanceMultiplier = 4.38f;
+float maxHighSpeedDistanceIncrement = 1.45f;
+float accelerationCamDistanceMultiplier = 1.45f;
 Vector3f playerVehOffset;
 
 Vector3f up(0.0f, 0.0f, 1.0f);
@@ -413,6 +413,44 @@ const Color solidPurple = { 127, 0, 255, 255 };
 
 const Color transparentGray = { 75, 75, 75, 75 };
 
+void ShowNotification(char* msg) 
+{
+	UI::_SET_NOTIFICATION_TEXT_ENTRY("CELL_EMAIL_BCON");
+
+	std::string strMsg(msg);
+	const int maxStringLength = 99;
+
+	for (int i = 0; i < strlen(msg); i += maxStringLength)
+	{
+		UI::ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME((char*)strMsg.substr(i, min(maxStringLength, strlen(msg) - i)).c_str());
+	}
+
+	UI::_DRAW_NOTIFICATION(false, true);
+}
+
+void ReadSettings(bool notify) 
+{
+	CSimpleIniA ini;
+	//ini.SetUnicode();
+	SI_Error res = ini.LoadFile("CustomCameraVPlus.ini");
+
+	if (res == SI_Error::SI_OK) {
+		const char* fov3rdPerson = ini.GetValue("3rdPersonView", "fov", "77.5");
+		const char* fov1stPerson = ini.GetValue("1stPersonView", "fov", "77.5");
+
+		const char* dist3rdPerson = ini.GetValue("3rdPersonView", "distanceOffset", "0.0");
+
+		fov3P = std::stof(fov3rdPerson);
+		fov1P = std::stof(fov1stPerson);
+		distanceOffset = std::stof(dist3rdPerson);
+
+		if (notify)
+			ShowNotification("CCVPlus: Settings reloaded");
+	}
+	else
+		ShowNotification("CCVPlus: Cannot load settings! Missing ini file?");
+}
+
 // showText() taken from https://github.com/E66666666/GTAVManualTransmission/
 void showText(float x, float y, float scale, const char* text, int font, const Color &rgba, bool outline) {
 	UI::SET_TEXT_FONT(font);
@@ -463,6 +501,8 @@ void firstInit()
 	UINT_PTR address = FindPattern("\x48\x8B\xC7\xF3\x0F\x10\x0D", "xxxxxxx") - 0x1D;
 	address = address + *reinterpret_cast<int*>(address) + 4;
 	gamePlayCameraAddr = *reinterpret_cast<UINT_PTR*>(*reinterpret_cast<int*>(address + 3) + address + 7);
+
+	ReadSettings(false);
 }
 
 Vector3f getGameplayCameraDirection() {
@@ -810,7 +850,7 @@ void updateVehicleProperties()
 	isBike = vehClass == eVehicleClass::VehicleClassCycles || vehClass == eVehicleClass::VehicleClassMotorcycles;
 	isSuitableForCam = vehClass != eVehicleClass::VehicleClassTrains && vehClass != eVehicleClass::VehicleClassPlanes && vehClass != eVehicleClass::VehicleClassHelicopters && vehClass != eVehicleClass::VehicleClassBoats;
 
-	longitudeOffset3P = getVehicleLongitude(veh) + distanceOffset;
+	longitudeOffset3P = getVehicleLongitude(veh) + distanceOffset + 0.08f;
 	heightOffset3P = max(1.40f, getVehicleHeight(veh) + 0.118f);
 
 	if (heightOffset3P >= 2.45f) {
@@ -1126,12 +1166,12 @@ void updateCameraSmooth3P() {
 		finalDistMult = lerp(1.f, -0.45f, finalDistMult);
 	}
 
-	float factor = clamp01(vehSpeed / maxHighSpeed);
+	float factor = clamp01(vehSpeed / (maxHighSpeed));
 	float currentDistanceIncrement = lerp(0.f, maxHighSpeedDistanceIncrement, easeOutCubic(factor));
 
-	factor = clamp01(vehAcceleration / (maxHighSpeed));
+	factor = clamp01(vehAcceleration);
 
-	smoothAccelerationFactor = lerp(smoothAccelerationFactor, factor, clamp01(35.f * getDeltaTime()));
+	smoothAccelerationFactor = lerp(smoothAccelerationFactor, factor, clamp01(27.5f * getDeltaTime()));
 	currentDistanceIncrement += lerp(0.f, accelerationCamDistanceMultiplier, easeOutCubic(smoothAccelerationFactor));
 
 	if (isBike)
@@ -1143,7 +1183,7 @@ void updateCameraSmooth3P() {
 	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind)) {
 		relativeLookDir = front;
 		finalDistMult *= -1.f;
-		bool lookBehind = true;
+		lookBehind = true;
 	}
 
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45f * getDeltaTime());
@@ -1165,7 +1205,7 @@ void updateCameraSmooth3P() {
 		Vector3f latVector = camRight;
 
 		float angle = GAMEPLAY::GET_ANGLE_BETWEEN_2D_VECTORS(camForward.x(), camForward.y(), vehForwardVector.x(), vehForwardVector.y());
-		float maxAngle = 28.f;
+		float maxAngle = 35.f;
 		angle = clamp(angle, 0.f, maxAngle);
 
 		float angleFront = angle;
@@ -1207,7 +1247,7 @@ void updateCameraSmooth3P() {
 		setCamPos(customCam, toV3f(endCoords) + (finalQuat * front * 0.01f));
 	}
 
-	camPointAt(customCam, finalPosCenter + (up * .168f) + (offsetLatPointFront * -1.4825f));
+	camPointAt(customCam, finalPosCenter + (-up * .170f) + (offsetLatPointFront * -1.4825f));
 }
 
 void updateCustomCamera() 
@@ -1399,9 +1439,10 @@ void updateTimers() {
 
 void update()
 {
-	//if (IsKeyJustUp(str2key("F9"))) {
-	//	showDebug = !showDebug;
-	//}
+	if (IsKeyJustUp(str2key("F10"))) {
+		//showDebug = !showDebug;
+		ReadSettings(true);
+	}
 
 	if (IsKeyJustUp(str2key("1"))) {
 		customCamEnabled = !customCamEnabled;
@@ -1412,7 +1453,7 @@ void update()
 		showText(0.01f, 0.250f, 0.4, ("height: " + std::to_string(heightOffset3P)).c_str(), 4, solidWhite, true);
 		showText(0.01f, 0.300f, 0.4, ("long: " + std::to_string(longitudeOffset3P)).c_str(), 4, solidWhite, true);
 		showText(0.01f, 0.350f, 0.4, ("currentRotSpeed3P: " + std::to_string(currentRotSpeed3P)).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.400f, 0.4, ("vehGear: " + std::to_string(vehGear)).c_str(), 4, solidWhite, true);
+		showText(0.01f, 0.400f, 0.4, ("vehAccel_X100: " + std::to_string(vehAcceleration * 100.f)).c_str(), 4, solidWhite, true);
 		showText(0.01f, 0.450f, 0.4, ("vehUpright: " + std::to_string(ENTITY::GET_ENTITY_UPRIGHT_VALUE(veh))).c_str(), 4, solidWhite, true);
 		showText(0.01f, 0.500f, 0.4, ("vehRotX: " + std::to_string(vehRot.x())).c_str(), 4, solidWhite, true);
 		showText(0.01f, 0.550f, 0.4, ("vehRotY: " + std::to_string(vehRot.y())).c_str(), 4, solidWhite, true);
