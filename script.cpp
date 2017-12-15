@@ -444,8 +444,12 @@ void ReadSettings(bool notify)
 		fov1P = std::stof(fov1stPerson);
 		distanceOffset = std::stof(dist3rdPerson);
 
-		if (notify)
+		if (notify) {
 			ShowNotification("CCVPlus: Settings reloaded");
+			updateVehicleProperties();
+			setupCurrentCamera();
+		}
+			
 	}
 	else
 		ShowNotification("CCVPlus: Cannot load settings! Missing ini file?");
@@ -1439,11 +1443,6 @@ void updateTimers() {
 
 void update()
 {
-	if (IsKeyJustUp(str2key("F10"))) {
-		//showDebug = !showDebug;
-		ReadSettings(true);
-	}
-
 	if (IsKeyJustUp(str2key("1"))) {
 		customCamEnabled = !customCamEnabled;
 	}
@@ -1511,6 +1510,11 @@ void update()
 				haltCurrentCamera();
 				nextCam();
 				setupCurrentCamera();
+			}
+
+			if (IsKeyJustUp(str2key("F10"))) {
+				//showDebug = !showDebug;
+				ReadSettings(true);
 			}
 
 			updateTimers();

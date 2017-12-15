@@ -36,8 +36,12 @@ float getVehicleHeight(Vehicle vehicle);
 
 void ScriptMain();
 
-void PrintDebugVar();
-
 void lookBehind1p();
 
 Vector3f GetBonePos(Entity entity, char * boneName);
+
+void updateVehicleProperties();
+
+void setupCurrentCamera();
+
+void ReadSettings(bool notify);

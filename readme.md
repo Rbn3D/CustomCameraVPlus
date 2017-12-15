@@ -10,7 +10,7 @@ This is a C++ version of my [Custom Camera V](https://github.com/Rbn3D/CustomCam
 * Allows aim/shooting and look around (only mouse for now)
 * Reworked system to update camera position and rotation. Much improved since *Custom Camera V*
 * Nice feeling of speed
-* Look behind by by pressing "Look Behind" button! (key "C" by default)
+* Look behind by by pressing "Look Behind" button (key "C" by default)
 * Supports big vehicles, and even vehicles towing another vehicles
 * Customizable FOV and other settings via INI file
 
