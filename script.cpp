@@ -57,6 +57,8 @@ const float PI = 3.1415926535897932f;
 int lastVehHash = -1;
 bool isBike = false;
 
+bool isInVehicle = false;
+
 float longitudeOffset3P = 0.f;
 float heightOffset3P = 0.f;
 
@@ -139,9 +141,47 @@ Vehicle lastTrailer;
 float lastTrailerLongitude = 0.f;
 
 float smoothRadarAngle = 0.f;
+float extraAngleCamHeight = 0.f;
+float relAngle3p = 0.f;
 
 const float DEG_TO_RAD = 0.0174532925f;
 const float RADIAN_TO_DEG = 57.29577951f;
+
+//Matrix4f CrossProductMatrix(const Vector3f & n)
+//{
+//	Matrix4f m;
+//
+//	m << 0.0f, -n.z, n.y, 0.0f,
+//		n.z, 0.0f, -n.x, 0.0f,
+//		-n.y, n.x, 0.0f, 0.0f,
+//		0.0f, 0.0f, 0.0f, 1.0f;
+//
+//	return m;
+//}
+//
+//Matrix4f TensorProductMatrix(const Vector3f & n)
+//{
+//	Matrix4f m;
+//
+//	m << n.x * n.x, n.x * n.y, n.x * n.z, 0.0f,
+//		n.y * n.x, n.y * n.y, n.y * n.z, 0.0f,
+//		n.z * n.x, n.z * n.y, n.z * n.z, 0.0f,
+//		0.0f, 0.0f, 0.0f, 1.0f;
+//
+//	return m;
+//}
+//
+//Vector3f RotateAround(const Vector3f & axis, float amount, const Vector3f & vectorToRotate)
+//{
+//	Matrix4f identity;
+//	identity.Identity();
+//	Matrix4f first = identity * cos(amount);
+//	Matrix4f second = TensorProductMatrix(axis) * (1 - cos(amount));
+//	Matrix4f third = CrossProductMatrix(axis) * sin(amount);
+//	Vector4f endVal = (first + second + third) * vectorToRotate;
+//	return Vector3f(endVal.x, endVal.y, endVal.z);
+//}
+
 
 bool AreSameFloat(float a, float b)
 {
@@ -378,7 +418,11 @@ void updateMouseState() {
 	int movX = abs(lastX - currX);
 	int movY = abs(lastY - currY);
 
-	if (isAiming ||movX > 2.f || movY > 2.f) {
+	if (isAiming || movX >= 1 || movY >= 1) { // Mouse moved on last frame
+
+		if (isInVehicle && customCamEnabled && mouseMoveCountdown <= 0.0001f && smoothIsMouseLooking <= 0.001f)
+			setGameplayCamRelativeRotation(relAngle3p); // Sync gameplay cam rotarion
+
 		mouseMoveCountdown = 1.5f;
 	}
 
@@ -386,6 +430,13 @@ void updateMouseState() {
 		mouseMoveCountdown = max(0.f, mouseMoveCountdown - (SYSTEM::TIMESTEP() * clamp01(vehSpeed * 0.08f)));
 
 	lastMouseCoords = currXY;
+}
+
+void setGameplayCamRelativeRotation(float heading) {
+	CAM::SET_GAMEPLAY_CAM_RELATIVE_HEADING(relAngle3p);
+	CAM::SET_GAMEPLAY_CAM_RELATIVE_PITCH(0.f, 1.f);
+
+	//WAIT(0);
 }
 
 // Color struct taken from https://github.com/E66666666/GTAVManualTransmission/
@@ -413,7 +464,7 @@ const Color solidPurple = { 127, 0, 255, 255 };
 
 const Color transparentGray = { 75, 75, 75, 75 };
 
-void ShowNotification(char* msg) 
+void ShowNotification(const char* msg) 
 {
 	UI::_SET_NOTIFICATION_TEXT_ENTRY("CELL_EMAIL_BCON");
 
@@ -455,6 +506,7 @@ void ReadSettings(bool notify)
 		ShowNotification("CCVPlus: Cannot load settings! Missing ini file?");
 }
 
+/*
 // showText() taken from https://github.com/E66666666/GTAVManualTransmission/
 void showText(float x, float y, float scale, const char* text, int font, const Color &rgba, bool outline) {
 	UI::SET_TEXT_FONT(font);
@@ -467,6 +519,7 @@ void showText(float x, float y, float scale, const char* text, int font, const C
 	UI::ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(CharAdapter(text));
 	UI::END_TEXT_COMMAND_DISPLAY_TEXT(x, y);
 }
+*/
 
 Vector3f getDimensions(Hash modelHash) {
 	Vector3 min;
@@ -843,7 +896,7 @@ void updateVehicleProperties()
 	skelPos += vehForwardVector * (distanceOnAxisNoAbs(skelPos, windscreenPos, vehForwardVector) + playerHeadDistance);
 
 	float distSteeringWheel = distanceOnAxisNoAbs(skelPos, wheelPos, vehForwardVector);
-	float minDistSteeringWheel = 0.125f;
+	float minDistSteeringWheel = 0.285f;
 
 	if (distSteeringWheel < minDistSteeringWheel)
 		skelPos += vehForwardVector * (distSteeringWheel - minDistSteeringWheel);
@@ -854,18 +907,30 @@ void updateVehicleProperties()
 	isBike = vehClass == eVehicleClass::VehicleClassCycles || vehClass == eVehicleClass::VehicleClassMotorcycles;
 	isSuitableForCam = vehClass != eVehicleClass::VehicleClassTrains && vehClass != eVehicleClass::VehicleClassPlanes && vehClass != eVehicleClass::VehicleClassHelicopters && vehClass != eVehicleClass::VehicleClassBoats;
 
-	longitudeOffset3P = getVehicleLongitude(veh) + distanceOffset + 0.08f;
-	heightOffset3P = max(1.40f, getVehicleHeight(veh) + 0.118f);
+	longitudeOffset3P = getVehicleLongitudeFromCenterBack(veh) + 0.7f;
 
-	if (heightOffset3P >= 2.45f) {
-		heightOffset3P += 0.7f;
-		longitudeOffset3P += 1.8f;
+	heightOffset3P = clamp(getVehicleHeightFromCenterUp(veh) + 0.5f, 0.f, 2.0f);
+	//ShowNotification(std::to_string(heightOffset3P).c_str());
+
+	if (heightOffset3P > 1.75f)
+	{
+		extraAngleCamHeight = clamp(lerp(0.1f, 2.0f, unlerp(1.75f, 2.00f, heightOffset3P)), 0.f, 3.0f);
+		heightOffset3P += (extraAngleCamHeight * 0.5f);
+		longitudeOffset3P += extraAngleCamHeight;
+
+		extraAngleCamHeight = clamp(extraAngleCamHeight, 0.f, 2.25f);
 	}
+	else
+		extraAngleCamHeight = 0.0f;
 
 	if (isBike) {
-		longitudeOffset3P += 1.65f;
+		longitudeOffset3P += 1.f;
 		heightOffset3P = 1.38f;
 	}
+
+	longitudeOffset3P += 1.45f + distanceOffset;
+
+	//ShowNotification(std::to_string(longitudeOffset3P).c_str());
 
 	vehHasTowBone = vehHasBone("tow_arm");
 	vehHasTrailerBone = vehHasBone("attach_female");
@@ -894,6 +959,7 @@ void setupCurrentCamera() {
 		CAM::SET_CAM_FOV(customCam, fov1P);
 		smoothRotSeat = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
 		smoothQuatSeat = getEntityQuaternion(veh);
+		relAngle3p = 0.f;
 	}
 	else if (currentCam == eCamType::Smooth3P) {
 		CAM::SET_CAM_NEAR_CLIP(customCam, 0.15f);
@@ -923,6 +989,9 @@ void setupCustomCamera() {
 	smoothRadarAngle = mathRepeat(CAM::GET_GAMEPLAY_CAM_ROT(2).z, 360.f);
 
 	camInitialized = true;
+	isInVehicle = true;
+
+	CAM::SET_CINEMATIC_MODE_ACTIVE(false);
 
 	setupCurrentCamera();
 }
@@ -1092,7 +1161,7 @@ Vector3f GetBonePos(Entity entity, char * boneName)
 }
 
 void updateCameraSmooth3P() {
-	Vector3f extraCamHeight = up * 0.14f;
+	Vector3f extraCamHeight = up * (0.14f + extraAngleCamHeight);
 	Vector3f posCenter = vehPos + (up * heightOffset3P);
 
 	float rotSpeed = rotationSpeed3P;
@@ -1110,29 +1179,19 @@ void updateCameraSmooth3P() {
 
 	float speedFactor = clamp01((vehSpeed - 5.f) * 0.35f);
 
-	if(speedFactor >= 0.00001f)
-		velocityQuat3P = lookRotation(smoothVelocity);
+	if (speedFactor >= 0.00001f)
+		velocityQuat3P = /*lookRotation(smoothVelocity);*/ slerp(velocityQuat3P, lookRotation(smoothVelocity), 4.f * getDeltaTime());
+	else if (vehSpeed >= 0.00001f) // fix instant cam rotation when rollovers/sudden rotation changes and speeds goes below 5.0f (if speedFactor < 0.00001f)
+		velocityQuat3P = slerp(velocityQuat3P, lookRotation(smoothVelocity), 0.2f * getDeltaTime()); 
 
-	smoothSpeedFactor = lerp(smoothSpeedFactor, speedFactor, 5.f * getDeltaTime());
+	smoothSpeedFactor = lerp(smoothSpeedFactor, speedFactor, clamp(6.f * getDeltaTime(), 0.f, 0.1f));
 
 	velocityQuat3P = slerp(vehQuat, velocityQuat3P, smoothSpeedFactor);
 
 	if (isBike && vehSpeed >= 3.f) 
-	{
-		//if (smoothQuat3P.dot(velocityQuat3P) < 0.f)
-		//	velocityQuat3P = negateQuat(velocityQuat3P);
-
 		smoothQuat3P = slerp(smoothQuat3P, velocityQuat3P, currentRotSpeed3P * getDeltaTime());
-	}
 	else
-	{
-		//if (smoothQuat3P.dot(vehQuat) < 0.f)
-		//	smoothQuat3P = negateQuat(smoothQuat3P);
 		smoothQuat3P = slerp(smoothQuat3P, vehQuat, currentRotSpeed3P * getDeltaTime());
-	}
-
-	//if (smoothQuat3P.dot(velocityQuat3P) < 0.f)
-	//	velocityQuat3P = negateQuat(velocityQuat3P);
 
 	Quaternionf finalQuat = slerp(smoothQuat3P, velocityQuat3P, smoothIsInAir);
 
@@ -1201,29 +1260,33 @@ void updateCameraSmooth3P() {
 	Vector3f offsetLatPoint = Vector3f(0.f, 0.f, 0.f);
 	Vector3f offsetLatPointFront = Vector3f(0.f,0.f,0.f);
 
+
+	Vector3f camForward = getCameraForwardVector(customCam).normalized();
+	Vector3f camRight = getCameraRightVector(customCam).normalized();
+	//Vector3f latVector = lerp(vehRightVector, camRight, 0.5f);
+	Vector3f latVector = camRight;
+
+	float angle = GAMEPLAY::GET_ANGLE_BETWEEN_2D_VECTORS(camForward.x(), camForward.y(), vehForwardVector.x(), vehForwardVector.y());
+
+	relAngle3p = angle;
+
+	float maxAngle = 35.f;
+	angle = clamp(angle, 0.f, maxAngle);
+
+	float angleFront = angle;
+
+	angle = lerp(0.f, maxAngle + 2.f, easeInCubic(unlerp(0.f, maxAngle, angle))); // apply easing
+	angleFront = lerp(0.f, maxAngle + 2.f, unlerp(0.f, maxAngle, angleFront)); // apply easing
+
+	if (distanceOnAxisNoAbs(camPos, vehPos, latVector) < 0.f) 
+	{
+		angle = -angle;
+		relAngle3p = -relAngle3p;
+		angleFront = -angleFront;
+	}
+			
 	if (!lookBehind && !isBike)
 	{
-		Vector3f camForward = getCameraForwardVector(customCam).normalized();
-		Vector3f camRight = getCameraRightVector(customCam).normalized();
-		//Vector3f latVector = lerp(vehRightVector, camRight, 0.5f);
-		Vector3f latVector = camRight;
-
-		float angle = GAMEPLAY::GET_ANGLE_BETWEEN_2D_VECTORS(camForward.x(), camForward.y(), vehForwardVector.x(), vehForwardVector.y());
-		float maxAngle = 35.f;
-		angle = clamp(angle, 0.f, maxAngle);
-
-		float angleFront = angle;
-
-		angle = lerp(0.f, maxAngle + 2.f, easeInCubic(unlerp(0.f, maxAngle, angle))); // apply easing
-		angleFront = lerp(0.f, maxAngle + 2.f, unlerp(0.f, maxAngle, angleFront)); // apply easing
-
-		if (distanceOnAxisNoAbs(camPos, vehPos, latVector) < 0.f) 
-		{
-			angle = -angle;
-			angleFront = -angleFront;
-		}
-			
-
 		angle = angle * 0.003f;
 		angleFront = angleFront * 0.003f;
 		//showText(0.01f, 0.200f, 0.4, ("angle: " + std::to_string(angle)).c_str(), 4, solidWhite, true);
@@ -1282,6 +1345,7 @@ void DisableCustomCamera()
 	CAM::DESTROY_CAM(customCam, true);
 	CAM::RENDER_SCRIPT_CAMS(false, false, 3000, true, false);
 	camInitialized = false;
+	isInVehicle = false;
 	
 	haltCurrentCamera();
 }
@@ -1297,6 +1361,9 @@ float getVehicleLongitude(Vehicle vehicle) {
 	//Vector3f backBonePos;
 	//Vector3f frontBonePos;
 
+	//const char * boneNameBack;
+	//const char * boneNameFront;
+
 	for (const char *boneName : vehicleBones)
 	{
 		int boneIndex = ENTITY::GET_ENTITY_BONE_INDEX_BY_NAME(vehicle, (char*)boneName);
@@ -1309,15 +1376,51 @@ float getVehicleLongitude(Vehicle vehicle) {
 
 			if (currBackDistance > maxBackDistance) {
 				maxBackDistance = currBackDistance;
+				//boneNameBack = boneName;
 			}
 
 			if (currFrontDistance > maxFrontDistance) {
 				maxFrontDistance = currFrontDistance;
+				//boneNameFront = boneName;
 			}
 		}
 	}
 
+	//ShowNotification(boneNameBack);
+	//ShowNotification(boneNameFront);
+
 	return maxBackDistance + maxFrontDistance;
+}
+
+float getVehicleLongitudeFromCenterBack(Vehicle vehicle) {
+
+	Vector3f vehiclePos = toV3f(ENTITY::GET_ENTITY_COORDS(vehicle, true));
+	Vector3f forward = toV3f(ENTITY::GET_ENTITY_FORWARD_VECTOR(vehicle));
+
+	float maxBackDistance = 0.f;
+
+	//const char * maxFrontName;
+
+	for (const char *boneName : vehicleBones)
+	{
+		int boneIndex = ENTITY::GET_ENTITY_BONE_INDEX_BY_NAME(vehicle, (char*)boneName);
+
+		if (boneIndex != -1)
+		{
+			Vector3f bonePos = toV3f(ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(vehicle, boneIndex));
+			float currBackDistance = distanceOnAxisNoAbs(bonePos, vehiclePos, forward);
+
+			if (currBackDistance > maxBackDistance) {
+				maxBackDistance = currBackDistance;
+
+				//maxFrontName = boneName;
+			}
+		}
+	}
+
+	//ShowNotification(maxFrontName);
+
+	return maxBackDistance;
 }
 
 float getVehicleHeight(Vehicle vehicle) {
@@ -1326,7 +1429,7 @@ float getVehicleHeight(Vehicle vehicle) {
 
 	Vector3f rightVector = toV3f(getRightVector(rotation));
 	Vector3f forward = toV3f(ENTITY::GET_ENTITY_FORWARD_VECTOR(vehicle));
-	Vector3f upVector = vehRightVector.cross(forward);
+	Vector3f upVector = rightVector.cross(forward);
 
 	Vector3f vehiclePos = toV3f(ENTITY::GET_ENTITY_COORDS(vehicle, true));
 
@@ -1357,6 +1460,49 @@ float getVehicleHeight(Vehicle vehicle) {
 	}
 
 	return maxBackDistance + maxFrontDistance;
+}
+
+float getVehicleHeightFromCenterUp(Vehicle vehicle) {
+
+	Vector3f rotation = toV3f(ENTITY::GET_ENTITY_ROTATION(vehicle, false));
+
+	Vector3f rightVector = toV3f(getRightVector(rotation));
+	Vector3f forward = toV3f(ENTITY::GET_ENTITY_FORWARD_VECTOR(vehicle));
+	Vector3f upVector = rightVector.cross(forward);
+
+	Vector3f vehiclePos = toV3f(ENTITY::GET_ENTITY_COORDS(vehicle, true));
+
+	//float maxBackDistance = 0.f;
+	float maxFrontDistance = 0.f;
+
+	//Vector3f backBonePos;
+	//Vector3f frontBonePos;
+	const char * maxFrontName;
+
+	for (const char *boneName : vehicleBones)
+	{
+		int boneIndex = ENTITY::GET_ENTITY_BONE_INDEX_BY_NAME(vehicle, (char*)boneName);
+
+		if (boneIndex != -1)
+		{
+			Vector3f bonePos = toV3f(ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(vehicle, boneIndex));
+			//float currBackDistance = distanceOnAxisNoAbs(bonePos, vehiclePos, upVector);
+			float currFrontDistance = distanceOnAxisNoAbs(bonePos, vehiclePos, -upVector);
+
+			//if (currBackDistance > maxBackDistance) {
+			//	maxBackDistance = currBackDistance;
+			//}
+
+			if (currFrontDistance > maxFrontDistance) {
+				maxFrontDistance = currFrontDistance;
+				maxFrontName = boneName;
+			}
+		}
+	}
+
+	//ShowNotification(std::to_string(maxFrontDistance).c_str());
+
+	return /*maxBackDistance + */ maxFrontDistance;
 }
 
 float getTowedVehicleOrTrailerLongitude() {
@@ -1447,6 +1593,7 @@ void update()
 		customCamEnabled = !customCamEnabled;
 	}
 
+	/*
 	if (showDebug) {
 		showText(0.01f, 0.200f, 0.4, ("MouseLookCountDown: " + std::to_string(mouseMoveCountdown)).c_str(), 4, solidWhite, true);
 		showText(0.01f, 0.250f, 0.4, ("height: " + std::to_string(heightOffset3P)).c_str(), 4, solidWhite, true);
@@ -1460,6 +1607,7 @@ void update()
 		showText(0.01f, 0.650f, 0.4, ("viewLock: " + std::to_string(viewLock)).c_str(), 4, solidWhite, true);
 		showText(0.01f, 0.700f, 0.4, ("vehClass: " + std::to_string(vehClass)).c_str(), 4, solidWhite, true);
 	}
+	*/
 
 	Player player = PLAYER::PLAYER_ID();
 	playerPed = PLAYER::PLAYER_PED_ID();
@@ -1498,6 +1646,7 @@ void update()
 		if (isSuitableForCam && customCamEnabled) {
 
 			CONTROLS::DISABLE_CONTROL_ACTION(0, eControl::ControlNextCamera, true);
+			CONTROLS::DISABLE_CONTROL_ACTION(0, eControl::ControlVehicleCinCam, true);
 
 			updateVehicleVars();
 
@@ -1513,7 +1662,7 @@ void update()
 			}
 
 			if (IsKeyJustUp(str2key("F10"))) {
-				//showDebug = !showDebug;
+				//showDebug = !showDebug; // TODO Comment this line out before release!
 				ReadSettings(true);
 			}
 

@@ -32,7 +32,11 @@ void DisableCustomCamera();
 
 float getVehicleLongitude(Vehicle vehicle);
 
+float getVehicleLongitudeFromCenterBack(Vehicle vehicle);
+
 float getVehicleHeight(Vehicle vehicle);
+
+float getVehicleHeightFromCenterUp(Vehicle vehicle);
 
 void ScriptMain();
 
@@ -44,4 +48,12 @@ void updateVehicleProperties();
 
 void setupCurrentCamera();
 
+void setGameplayCamRelativeRotation(float heading);
+
+void ShowNotification(char * msg);
+
 void ReadSettings(bool notify);
+
+void setGameplayCameraDirection(Vector3f dir);
+
+Vector3f getCameraForwardVector(Camera cam);
