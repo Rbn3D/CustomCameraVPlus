@@ -1500,7 +1500,7 @@ float getVehicleHeightFromCenterUp(Vehicle vehicle) {
 		}
 	}
 
-	//ShowNotification(std::to_string(maxFrontDistance).c_str());
+	//ShowNotification(maxFrontName);
 
 	return /*maxBackDistance + */ maxFrontDistance;
 }
