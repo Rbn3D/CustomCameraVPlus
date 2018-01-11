@@ -21,6 +21,8 @@
 // SimpleINI
 #include "..\..\inc\simpleini\SimpleIni.h"
 
+#include <string.h>
+
 using namespace Eigen;
 
 #ifndef M_PI
@@ -41,6 +43,8 @@ float getVehicleHeightFromCenterUp(Vehicle vehicle);
 void ScriptMain();
 
 void lookBehind1p();
+
+void ProccessLookLeftRightInput();
 
 Vector3f GetBonePos(Entity entity, char * boneName);
 

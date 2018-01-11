@@ -147,41 +147,25 @@ float relAngle3p = 0.f;
 const float DEG_TO_RAD = 0.0174532925f;
 const float RADIAN_TO_DEG = 57.29577951f;
 
-//Matrix4f CrossProductMatrix(const Vector3f & n)
-//{
-//	Matrix4f m;
-//
-//	m << 0.0f, -n.z, n.y, 0.0f,
-//		n.z, 0.0f, -n.x, 0.0f,
-//		-n.y, n.x, 0.0f, 0.0f,
-//		0.0f, 0.0f, 0.0f, 1.0f;
-//
-//	return m;
-//}
-//
-//Matrix4f TensorProductMatrix(const Vector3f & n)
-//{
-//	Matrix4f m;
-//
-//	m << n.x * n.x, n.x * n.y, n.x * n.z, 0.0f,
-//		n.y * n.x, n.y * n.y, n.y * n.z, 0.0f,
-//		n.z * n.x, n.z * n.y, n.z * n.z, 0.0f,
-//		0.0f, 0.0f, 0.0f, 1.0f;
-//
-//	return m;
-//}
-//
-//Vector3f RotateAround(const Vector3f & axis, float amount, const Vector3f & vectorToRotate)
-//{
-//	Matrix4f identity;
-//	identity.Identity();
-//	Matrix4f first = identity * cos(amount);
-//	Matrix4f second = TensorProductMatrix(axis) * (1 - cos(amount));
-//	Matrix4f third = CrossProductMatrix(axis) * sin(amount);
-//	Vector4f endVal = (first + second + third) * vectorToRotate;
-//	return Vector3f(endVal.x, endVal.y, endVal.z);
-//}
+float LookLeftAngle1p = 75.0f;
+float LookRightAngle1p = 80.0f;
 
+float LookLeftAngle3p = 90.0f;
+float LookRightAngle3p = 90.0f;
+
+bool lookingLeft = false;
+bool lookingRight = false;
+bool lookingBack = false;
+
+// look left = -1.f; lookRight = 1.f; Center = 0.f (For smooth transitions)
+float RelativeLookFactor = 0.f;
+
+bool readInputFromMt = true;
+
+char * reloadKey = "F10";
+char * toggleModKey = "1";
+char * lookLeftKey = "B";
+char * lookRightKey = "N";
 
 bool AreSameFloat(float a, float b)
 {
@@ -486,14 +470,36 @@ void ReadSettings(bool notify)
 	SI_Error res = ini.LoadFile("CustomCameraVPlus.ini");
 
 	if (res == SI_Error::SI_OK) {
+		const char* dist3rdPerson = ini.GetValue("3rdPersonView", "distanceOffset", "0.0");
+
 		const char* fov3rdPerson = ini.GetValue("3rdPersonView", "fov", "77.5");
 		const char* fov1stPerson = ini.GetValue("1stPersonView", "fov", "77.5");
 
-		const char* dist3rdPerson = ini.GetValue("3rdPersonView", "distanceOffset", "0.0");
+		const char* c3rdPersonLookLeft = ini.GetValue("3rdPersonView", "lookLeftAngle", "90.0");
+		const char* c3rdPersonLookRight = ini.GetValue("3rdPersonView", "lookRightAngle", "90.0");
+
+		const char* c1stPersonLookLeft = ini.GetValue("1stPersonView", "lookLeftAngle", "75.0");
+		const char* c1stPersonLookRight = ini.GetValue("1stPersonView", "lookRightAngle", "80.0");
+
+		const char* cReadFromMt = ini.GetValue("general", "GetInputFromGearsAsi", "1");
+
+		reloadKey =    strdup(ini.GetValue("keyMappings", "reloadSettingsKey", "F10"));
+		toggleModKey = strdup(ini.GetValue("keyMappings", "toggleModKey", "1"));
+		lookLeftKey =  strdup(ini.GetValue("keyMappings", "lookLeftKey", "B"));
+		lookRightKey = strdup(ini.GetValue("keyMappings", "lookRightKey", "N"));
+
+		distanceOffset = std::stof(dist3rdPerson);
 
 		fov3P = std::stof(fov3rdPerson);
 		fov1P = std::stof(fov1stPerson);
-		distanceOffset = std::stof(dist3rdPerson);
+
+		LookLeftAngle3p = std::stof(c3rdPersonLookLeft);
+		LookRightAngle3p = std::stof(c3rdPersonLookRight);
+
+		LookLeftAngle1p = std::stof(c1stPersonLookLeft);
+		LookRightAngle1p = std::stof(c1stPersonLookRight);
+
+		readInputFromMt = std::stoi(cReadFromMt) > 0;
 
 		if (notify) {
 			ShowNotification("CCVPlus: Settings reloaded");
@@ -998,7 +1004,7 @@ void setupCustomCamera() {
 
 void updateCameraDriverSeat() {
 
-	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind)) 
+	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_back")))
 	{
 		lookBehind1p();
 
@@ -1036,12 +1042,14 @@ void updateCameraDriverSeat() {
 
 	CAM::SET_CAM_COORD(customCam, camPos.x(), camPos.y(), camPos.z());
 
+	float btnLookingFactor = abs(RelativeLookFactor);
+
 	if (isBike) {
 		CAM::STOP_CAM_POINTING(customCam);
 		Vector3f rot = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
 		rot[1] = rot.y() * 0.5f; // rot.y = rot.y * .5f
 
-		if (smoothIsMouseLooking > 0.001f) {
+		if (smoothIsMouseLooking > 0.001f && btnLookingFactor < 0.001f) {
 			Vector3f gameplayCamRot = toV3f(CAM::GET_GAMEPLAY_CAM_ROT(2));
 			Vector3f finalRotSeat = Vector3fLerpAngle(rot, gameplayCamRot, smoothIsMouseLooking);
 			CAM::SET_CAM_ROT(customCam, finalRotSeat.x(), finalRotSeat.y(), finalRotSeat.z(), 2);
@@ -1049,6 +1057,23 @@ void updateCameraDriverSeat() {
 		else
 		{
 			CAM::SET_CAM_ROT(customCam, rot.x(), rot.y(), rot.z(), 2);
+
+			float leftRightAngle = RelativeLookFactor < 0 ?
+				lerp(0.f, -LookLeftAngle1p, -RelativeLookFactor)
+				:
+				lerp(0.f, LookRightAngle1p, RelativeLookFactor)
+			;
+
+			float leftRightRad = leftRightAngle * DEG_TO_RAD;
+
+			float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
+			Quaternionf qLookLeftRight;
+			qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
+				* AngleAxisf(pitch, Vector3f::UnitY())
+				* AngleAxisf(yaw, Vector3f::UnitZ());
+
+			SET_CAM_QUATERNION(customCam, GET_CAM_QUATERNION(customCam) * qLookLeftRight);
+
 		}
 	}
 	else
@@ -1062,20 +1087,57 @@ void updateCameraDriverSeat() {
 			smoothRotSeat = Vector3fLerpAngle(smoothRotSeat, rot, clamp01(30.f * getDeltaTime()));
 			smoothQuatSeat = slerp(smoothQuatSeat, rotQuat, clamp01(30.f * getDeltaTime()));
 
-			if (smoothIsMouseLooking > 0.001f) {
+			if (smoothIsMouseLooking > 0.001f && btnLookingFactor < 0.001f) {
 				Vector3f gameplayCamRot = toV3f(CAM::GET_GAMEPLAY_CAM_ROT(2));
 				Vector3f finalRotSeat = Vector3fLerpAngle(smoothRotSeat, gameplayCamRot, smoothIsMouseLooking);
 				CAM::SET_CAM_ROT(customCam, finalRotSeat.x(), finalRotSeat.y(), finalRotSeat.z(), 2);
 			}
 			else
 			{
-				//CAM::SET_CAM_ROT(customCam, smoothRotSeat.x(), smoothRotSeat.y(), smoothRotSeat.z(), 2);
-				SET_CAM_QUATERNION(customCam, smoothQuatSeat);
+				float leftRightAngle = RelativeLookFactor < 0 ?
+						lerp(0.f, -LookLeftAngle1p, -RelativeLookFactor)
+					:
+						lerp(0.f, LookRightAngle1p, RelativeLookFactor)
+					;
+
+				float leftRightRad = leftRightAngle * DEG_TO_RAD;
+
+				float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
+				Quaternionf qLookLeftRight;
+				qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
+					* AngleAxisf(pitch, Vector3f::UnitY())
+					* AngleAxisf(yaw, Vector3f::UnitZ());
+
+				SET_CAM_QUATERNION(customCam, smoothQuatSeat * qLookLeftRight);
 			}
 				
 	}
 
 	CAM::RENDER_SCRIPT_CAMS(true, false, 3000, 1, 0);
+}
+
+void ProccessLookLeftRightInput()
+{
+	const float rotSpeed = 9.f;
+
+	bool evalLeft  = IsKeyDown(str2key(lookLeftKey)) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_left"));
+	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_right"));;
+
+	if (evalLeft && !evalRight) {
+		RelativeLookFactor += rotSpeed * getDeltaTime();
+	}
+	else if (evalRight) {
+		RelativeLookFactor -= rotSpeed * getDeltaTime();
+	}
+	else
+	{
+		if (RelativeLookFactor > 0.f)
+			RelativeLookFactor = clamp01(RelativeLookFactor - rotSpeed * getDeltaTime());
+		else
+			RelativeLookFactor = clamp(RelativeLookFactor + rotSpeed * getDeltaTime(), -1.f, 0.f);
+	}
+
+	RelativeLookFactor = clamp(RelativeLookFactor, -1.f, 1.f);
 }
 
 void lookBehind1p()
@@ -1195,22 +1257,36 @@ void updateCameraSmooth3P() {
 
 	Quaternionf finalQuat = slerp(smoothQuat3P, velocityQuat3P, smoothIsInAir);
 
-	/*viewLock = clamp01(viewLock - (getDeltaTime() *10.f));
-	viewLock = clamp01(viewLock + (vehSpeed *.05f));
-
-	smoothViewLock = lerp(smoothViewLock, viewLock, clamp01(1.6f * getDeltaTime()));
-
-	float vehAcceleration = getVehicleAcceleration();
-
-	if (smoothViewLock >= 0.001f && smoothViewLock <= 0.99f && !isMouseLooking()) {
-		Vector3f dirCustomCam = finalQuat * front;
-		setGameplayCameraDirection(vehSpeed > 10.f ? dirCustomCam : vehForwardVector);
-	}*/
-
 	Quaternionf mouseLookRot = lookRotation(getGameplayCameraDirection());
 
+	bool lookBehind = false;
+	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_back")))
+		lookBehind = true;
+
+	float leftRightAngle = 0.f;
+	if (!lookBehind) {
+		leftRightAngle = RelativeLookFactor < 0 ?
+			lerp(0.f, -LookLeftAngle3p, -RelativeLookFactor)
+			:
+			lerp(0.f, LookRightAngle3p, RelativeLookFactor)
+			;
+	}
+
+	float leftRightRad = leftRightAngle * DEG_TO_RAD;
+
+	float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
+	Quaternionf qLookLeftRight;
+	qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
+		* AngleAxisf(pitch, Vector3f::UnitY())
+		* AngleAxisf(yaw, Vector3f::UnitZ());
+
+	float btnLookingFactor = (abs(RelativeLookFactor));
+
+	if (lookBehind)
+		btnLookingFactor = 1.f;
+
 	//finalQuat = slerp(finalQuat, mouseLookRot, max(smoothIsMouseLooking, 1.f - smoothViewLock));
-	finalQuat = slerp(finalQuat, mouseLookRot, smoothIsMouseLooking);
+	finalQuat = slerp(finalQuat * qLookLeftRight, mouseLookRot, clamp01(smoothIsMouseLooking - btnLookingFactor));
 
 	if (smoothIsAiming > 0.00001f) {
 		float currentFov = lerp(fov3P, fov3PAiming, smoothIsAiming);
@@ -1242,11 +1318,9 @@ void updateCameraSmooth3P() {
 
 	Vector3f relativeLookDir = back;
 
-	bool lookBehind = false;
-	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind)) {
+	if(lookBehind) {
 		relativeLookDir = front;
 		finalDistMult *= -1.f;
-		lookBehind = true;
 	}
 
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45f * getDeltaTime());
@@ -1293,7 +1367,11 @@ void updateCameraSmooth3P() {
 		offsetLatPoint = latVector * (angle * (1.f - smoothIsMouseLooking) * (1.f - smoothIsInAir) * (1.f - smoothIsAiming) * clamp01((vehSpeed - 0.002f) * 0.1f) * clamp01(1.f - ((vehSpeed * 0.01f))));
 		offsetLatPointFront = latVector * (angleFront * (1.f - smoothIsMouseLooking) * (1.f - smoothIsInAir) * (1.f - smoothIsAiming) * clamp01((vehSpeed - 0.002f) * 0.1f) * clamp01(1.f - ((vehSpeed * 0.01f))));
 	}
-	setCamPos(customCam, camPos + (offsetLatPointFront * 1.455f));
+
+	if (isBike)
+		setCamPos(customCam, camPos);
+	else
+		setCamPos(customCam, camPos + (offsetLatPointFront * 1.455f));
 
 	//if (smoothIsMouseLooking > 0.001f) {
 	//	Vector3f camPos = lerp(camPos, getGameplayCameraPos(), smoothIsMouseLooking);
@@ -1314,7 +1392,10 @@ void updateCameraSmooth3P() {
 		setCamPos(customCam, toV3f(endCoords) + (finalQuat * front * 0.01f));
 	}
 
-	camPointAt(customCam, finalPosCenter + (-up * .170f) + (offsetLatPointFront * -1.4825f));
+	if(isBike)
+		camPointAt(customCam, finalPosCenter + (-up * .170f));
+	else
+		camPointAt(customCam, finalPosCenter + (-up * .170f) + (offsetLatPointFront * -1.4825f));
 }
 
 void updateCustomCamera() 
@@ -1589,7 +1670,7 @@ void updateTimers() {
 
 void update()
 {
-	if (IsKeyJustUp(str2key("1"))) {
+	if (IsKeyJustUp(str2key(toggleModKey))) {
 		customCamEnabled = !customCamEnabled;
 	}
 
@@ -1661,12 +1742,13 @@ void update()
 				setupCurrentCamera();
 			}
 
-			if (IsKeyJustUp(str2key("F10"))) {
+			if (IsKeyJustUp(str2key(reloadKey))) {
 				//showDebug = !showDebug; // TODO Comment this line out before release!
 				ReadSettings(true);
 			}
 
 			updateTimers();
+			ProccessLookLeftRightInput();
 			updateCustomCamera();
 
 			Vector3 rotCam = CAM::GET_CAM_ROT(customCam, 2);
