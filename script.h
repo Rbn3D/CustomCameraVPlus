@@ -44,7 +44,7 @@ void ScriptMain();
 
 void lookBehind1p();
 
-void ProccessLookLeftRightInput();
+void ProccessLookLeftRightOrBackInput();
 
 Vector3f GetBonePos(Entity entity, char * boneName);
 

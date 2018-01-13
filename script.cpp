@@ -153,9 +153,7 @@ float LookRightAngle1p = 80.0f;
 float LookLeftAngle3p = 90.0f;
 float LookRightAngle3p = 90.0f;
 
-bool lookingLeft = false;
-bool lookingRight = false;
-bool lookingBack = false;
+bool isLookingBack = false;
 
 // look left = -1.f; lookRight = 1.f; Center = 0.f (For smooth transitions)
 float RelativeLookFactor = 0.f;
@@ -1004,7 +1002,7 @@ void setupCustomCamera() {
 
 void updateCameraDriverSeat() {
 
-	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_back")))
+	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || isLookingBack)
 	{
 		lookBehind1p();
 
@@ -1049,6 +1047,9 @@ void updateCameraDriverSeat() {
 		Vector3f rot = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
 		rot[1] = rot.y() * 0.5f; // rot.y = rot.y * .5f
 
+		//smoothRotSeat = Vector3fLerpAngle(smoothRotSeat, rot, clamp01(30.f * getDeltaTime()));
+		smoothQuatSeat = getEntityQuaternion(veh);
+
 		if (smoothIsMouseLooking > 0.001f && btnLookingFactor < 0.001f) {
 			Vector3f gameplayCamRot = toV3f(CAM::GET_GAMEPLAY_CAM_ROT(2));
 			Vector3f finalRotSeat = Vector3fLerpAngle(rot, gameplayCamRot, smoothIsMouseLooking);
@@ -1056,13 +1057,11 @@ void updateCameraDriverSeat() {
 		}
 		else
 		{
-			CAM::SET_CAM_ROT(customCam, rot.x(), rot.y(), rot.z(), 2);
-
 			float leftRightAngle = RelativeLookFactor < 0 ?
 				lerp(0.f, -LookLeftAngle1p, -RelativeLookFactor)
 				:
 				lerp(0.f, LookRightAngle1p, RelativeLookFactor)
-			;
+				;
 
 			float leftRightRad = leftRightAngle * DEG_TO_RAD;
 
@@ -1072,7 +1071,7 @@ void updateCameraDriverSeat() {
 				* AngleAxisf(pitch, Vector3f::UnitY())
 				* AngleAxisf(yaw, Vector3f::UnitZ());
 
-			SET_CAM_QUATERNION(customCam, GET_CAM_QUATERNION(customCam) * qLookLeftRight);
+			SET_CAM_QUATERNION(customCam, smoothQuatSeat * qLookLeftRight);
 
 		}
 	}
@@ -1116,12 +1115,14 @@ void updateCameraDriverSeat() {
 	CAM::RENDER_SCRIPT_CAMS(true, false, 3000, 1, 0);
 }
 
-void ProccessLookLeftRightInput()
+void ProccessLookLeftRightOrBackInput()
 {
 	const float rotSpeed = 9.f;
 
 	bool evalLeft  = IsKeyDown(str2key(lookLeftKey)) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_left"));
-	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_right"));;
+	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_right"));
+
+	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlVehicleLookBehind) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_back")) || (evalLeft && evalRight);
 
 	if (evalLeft && !evalRight) {
 		RelativeLookFactor += rotSpeed * getDeltaTime();
@@ -1260,7 +1261,7 @@ void updateCameraSmooth3P() {
 	Quaternionf mouseLookRot = lookRotation(getGameplayCameraDirection());
 
 	bool lookBehind = false;
-	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_back")))
+	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || isLookingBack)
 		lookBehind = true;
 
 	float leftRightAngle = 0.f;
@@ -1359,7 +1360,7 @@ void updateCameraSmooth3P() {
 		angleFront = -angleFront;
 	}
 			
-	if (!lookBehind && !isBike)
+	if (!lookBehind /* && !isBike */)
 	{
 		angle = angle * 0.003f;
 		angleFront = angleFront * 0.003f;
@@ -1368,9 +1369,9 @@ void updateCameraSmooth3P() {
 		offsetLatPointFront = latVector * (angleFront * (1.f - smoothIsMouseLooking) * (1.f - smoothIsInAir) * (1.f - smoothIsAiming) * clamp01((vehSpeed - 0.002f) * 0.1f) * clamp01(1.f - ((vehSpeed * 0.01f))));
 	}
 
-	if (isBike)
-		setCamPos(customCam, camPos);
-	else
+	//if (isBike)
+	//	setCamPos(customCam, camPos);
+	//else
 		setCamPos(customCam, camPos + (offsetLatPointFront * 1.455f));
 
 	//if (smoothIsMouseLooking > 0.001f) {
@@ -1392,9 +1393,9 @@ void updateCameraSmooth3P() {
 		setCamPos(customCam, toV3f(endCoords) + (finalQuat * front * 0.01f));
 	}
 
-	if(isBike)
-		camPointAt(customCam, finalPosCenter + (-up * .170f));
-	else
+	//if(isBike)
+	//	camPointAt(customCam, finalPosCenter + (-up * .170f));
+	//else
 		camPointAt(customCam, finalPosCenter + (-up * .170f) + (offsetLatPointFront * -1.4825f));
 }
 
@@ -1748,7 +1749,7 @@ void update()
 			}
 
 			updateTimers();
-			ProccessLookLeftRightInput();
+			ProccessLookLeftRightOrBackInput();
 			updateCustomCamera();
 
 			Vector3 rotCam = CAM::GET_CAM_ROT(customCam, 2);
