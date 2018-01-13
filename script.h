@@ -21,6 +21,8 @@
 // SimpleINI
 #include "..\..\inc\simpleini\SimpleIni.h"
 
+#include <string.h>
+
 using namespace Eigen;
 
 #ifndef M_PI
@@ -42,6 +44,10 @@ void ScriptMain();
 
 void lookBehind1p();
 
+void ProccessLookLeftRightOrBackInput();
+
+BOOL GetDecoratorBool(char * decoratorKey);
+
 Vector3f GetBonePos(Entity entity, char * boneName);
 
 void updateVehicleProperties();
@@ -57,6 +63,14 @@ void ReadSettings(bool notify);
 void setGameplayCameraDirection(Vector3f dir);
 
 Vector3f getCameraForwardVector(Camera cam);
+
+enum eDecorType {
+	DECOR_TYPE_FLOAT = 1,
+	DECOR_TYPE_BOOL,
+	DECOR_TYPE_INT,
+	DECOR_TYPE_UNK,
+	DECOR_TYPE_TIME
+};
 
 const char* const vehicleBones[] =
 {
