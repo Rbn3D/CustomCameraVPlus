@@ -1077,39 +1077,38 @@ void updateCameraDriverSeat() {
 	}
 	else
 	{
-			CAM::STOP_CAM_POINTING(customCam);
+		CAM::STOP_CAM_POINTING(customCam);
 
-			Vector3f rot = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
-			Quaternionf rotQuat = getEntityQuaternion(veh);
-			//smoothRotSeat = Vector3fLerpAngle(smoothRotSeat, rot, clamp01(30.f * SYSTEM::TIMESTEP()));
-			//smoothRotSeat = Vector3fInertialDampAngle(smoothRotSeat, rot, 0.06f);
-			smoothRotSeat = Vector3fLerpAngle(smoothRotSeat, rot, clamp01(30.f * getDeltaTime()));
-			smoothQuatSeat = slerp(smoothQuatSeat, rotQuat, clamp01(30.f * getDeltaTime()));
+		Vector3f rot = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
+		Quaternionf rotQuat = getEntityQuaternion(veh);
+		//smoothRotSeat = Vector3fLerpAngle(smoothRotSeat, rot, clamp01(30.f * SYSTEM::TIMESTEP()));
+		//smoothRotSeat = Vector3fInertialDampAngle(smoothRotSeat, rot, 0.06f);
+		smoothRotSeat = Vector3fLerpAngle(smoothRotSeat, rot, clamp01(30.f * getDeltaTime()));
+		smoothQuatSeat = slerp(smoothQuatSeat, rotQuat, clamp01(30.f * getDeltaTime()));
 
-			if (smoothIsMouseLooking > 0.001f && btnLookingFactor < 0.001f) {
-				Vector3f gameplayCamRot = toV3f(CAM::GET_GAMEPLAY_CAM_ROT(2));
-				Vector3f finalRotSeat = Vector3fLerpAngle(smoothRotSeat, gameplayCamRot, smoothIsMouseLooking);
-				CAM::SET_CAM_ROT(customCam, finalRotSeat.x(), finalRotSeat.y(), finalRotSeat.z(), 2);
-			}
-			else
-			{
-				float leftRightAngle = RelativeLookFactor < 0 ?
-						lerp(0.f, -LookLeftAngle1p, -RelativeLookFactor)
-					:
-						lerp(0.f, LookRightAngle1p, RelativeLookFactor)
-					;
+		if (smoothIsMouseLooking > 0.001f && btnLookingFactor < 0.001f) {
+			Vector3f gameplayCamRot = toV3f(CAM::GET_GAMEPLAY_CAM_ROT(2));
+			Vector3f finalRotSeat = Vector3fLerpAngle(smoothRotSeat, gameplayCamRot, smoothIsMouseLooking);
+			CAM::SET_CAM_ROT(customCam, finalRotSeat.x(), finalRotSeat.y(), finalRotSeat.z(), 2);
+		}
+		else
+		{
+			float leftRightAngle = RelativeLookFactor < 0 ?
+					lerp(0.f, -LookLeftAngle1p, -RelativeLookFactor)
+				:
+					lerp(0.f, LookRightAngle1p, RelativeLookFactor)
+				;
 
-				float leftRightRad = leftRightAngle * DEG_TO_RAD;
+			float leftRightRad = leftRightAngle * DEG_TO_RAD;
 
-				float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
-				Quaternionf qLookLeftRight;
-				qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
-					* AngleAxisf(pitch, Vector3f::UnitY())
-					* AngleAxisf(yaw, Vector3f::UnitZ());
+			float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
+			Quaternionf qLookLeftRight;
+			qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
+				* AngleAxisf(pitch, Vector3f::UnitY())
+				* AngleAxisf(yaw, Vector3f::UnitZ());
 
-				SET_CAM_QUATERNION(customCam, smoothQuatSeat * qLookLeftRight);
-			}
-				
+			SET_CAM_QUATERNION(customCam, smoothQuatSeat * qLookLeftRight);
+		}	
 	}
 
 	CAM::RENDER_SCRIPT_CAMS(true, false, 3000, 1, 0);
@@ -1119,10 +1118,10 @@ void ProccessLookLeftRightOrBackInput()
 {
 	const float rotSpeed = 9.f;
 
-	bool evalLeft  = IsKeyDown(str2key(lookLeftKey)) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_left"));
-	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_right"));
+	bool evalLeft = IsKeyDown(str2key(lookLeftKey)) || (readInputFromMt && GetDecoratorBool("mt_looking_left"));
+	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readInputFromMt && GetDecoratorBool("mt_looking_right"));
 
-	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlVehicleLookBehind) || (readInputFromMt && DECORATOR::DECOR_GET_BOOL(veh, (char *)"mt_looking_back")) || (evalLeft && evalRight);
+	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlVehicleLookBehind) || (readInputFromMt && GetDecoratorBool("mt_looking_back")) || (evalLeft && evalRight);
 
 	if (evalLeft && !evalRight) {
 		RelativeLookFactor += rotSpeed * getDeltaTime();
@@ -1139,6 +1138,11 @@ void ProccessLookLeftRightOrBackInput()
 	}
 
 	RelativeLookFactor = clamp(RelativeLookFactor, -1.f, 1.f);
+}
+
+BOOL GetDecoratorBool(char * decoratorKey)
+{
+	return DECORATOR::DECOR_IS_REGISTERED_AS_TYPE(decoratorKey, eDecorType::DECOR_TYPE_BOOL) && DECORATOR::DECOR_EXIST_ON(veh, decoratorKey) && DECORATOR::DECOR_GET_BOOL(veh, (char *)decoratorKey);
 }
 
 void lookBehind1p()
