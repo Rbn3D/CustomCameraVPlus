@@ -1161,6 +1161,8 @@ void lookBehind1p()
 			boneName = "windscreen_r";
 			offset = (vehUpVector * 0.08f) + (-vehForwardVector * 0.08f);
 			hasBone = true;
+
+			goto setBonePos;
 		}
 
 		if (vehHasBone("bumper_r"))
@@ -1168,6 +1170,8 @@ void lookBehind1p()
 			boneName = "bumper_r";
 			offset = (vehUpVector * 0.18f) + (-vehForwardVector * 0.08f);
 			hasBone = true;
+
+			goto setBonePos;
 		}
 
 		if (vehHasBone("brakelight_m"))
@@ -1175,6 +1179,8 @@ void lookBehind1p()
 			boneName = "brakelight_m";
 			offset = (vehUpVector * 0.08f) + (-vehForwardVector * 0.08f);
 			hasBone = true;
+
+			goto setBonePos;
 		}
 
 		if (vehHasBone("boot"))
@@ -1182,7 +1188,11 @@ void lookBehind1p()
 			boneName = "boot";
 			offset = vehUpVector * 0.28f;
 			hasBone = true;
+
+			goto setBonePos;
 		}
+
+		 setBonePos:
 
 		if (hasBone) {
 
