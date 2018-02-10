@@ -50,6 +50,8 @@ BOOL GetDecoratorBool(char * decoratorKey);
 
 Vector3f GetBonePos(Entity entity, char * boneName);
 
+void updateCam3pSmoothAlgorithm();
+
 void updateVehicleProperties();
 
 void setupCurrentCamera();
@@ -482,3 +484,4 @@ const char* const vehicleBones[] =
 	"neon_b"
 };
 
+Quaternionf QuatEuler(Eigen::Vector3f &camVec);
