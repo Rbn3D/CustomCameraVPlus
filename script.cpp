@@ -750,48 +750,8 @@ Vector3f Vector3fInertialDampAngle(Vector3f& v1, Vector3f& v2, float t)
 		InertialDampAngle(v1.z(), v2.z(), t));
 }
 
-//Quaternionf QuatScalarMultiply(Quaternionf& input, float scalar)
-//{
-//	return Quaternionf(input.x()/* * scalar*/, input.y()/* * scalar*/, input.z()/* * scalar*/, input.w() * scalar);
-//}
-//
-//Quaternionf QuatAdd(Quaternionf& p, Quaternionf& q)
-//{
-//	return Quaternionf(p.x() + q.x(), p.y() + q.y(), p.z() + q.z(), p.w() + q.w());
-//}
-//
-//float reciprocal(float f) {
-//	return 1.0 / f;
-//}
-//
-//Quaternionf lerp(Quaternionf q1, Quaternionf q2, float time)
-//{
-//	const float scale = 1.0f - time;
-//	return QuatAdd(QuatScalarMultiply(q1, scale), QuatScalarMultiply(q2, time));
-//}
-
 Quaternionf slerp(Quaternionf& q1, Quaternionf& q2, float time)
 {
-	//float angle = q1.dot(q2);
-
-	//// make sure we use the short rotation
-	////if (angle < 0.0f)
-	////{
-	////	q1 = QuatScalarMultiply(q1, -1.0f);
-	////	angle *= -1.0f;
-	////}
-
-	//if (angle <= (1 - threshold)) // spherical interpolation
-	//{
-	//	const float theta = acosf(angle);
-	//	const float invsintheta = reciprocal(sinf(theta));
-	//	const float scale = sinf(theta * (1.0f - time)) * invsintheta;
-	//	const float invscale = sinf(theta * time) * invsintheta;
-	//	return QuatAdd(QuatScalarMultiply(q1, scale), QuatScalarMultiply(q2, invscale));
-	//}
-	//else // linear interpolation
-	//	return lerp(q1, q2, time);
-
 	return q1.slerp(time, q2);
 }
 
@@ -799,11 +759,6 @@ Quaternionf nlerp(Quaternionf& q1, Quaternionf& q2, float time)
 {
 	return QuatEuler(lerp(QuatToEuler(q1), QuatToEuler(q2), time));
 }
-
-//Quaternionf lerp(float t, const Quaternionf& a, const Quaternionf& b)
-//{
-//	return a.slerp(t, b);
-//}
 
 float smoothStep(float from, float to, float t)
 {
@@ -1491,8 +1446,8 @@ void updateCam3pNfsAlgorithm()
 }
 
 void updateCameraSmooth3P() {
-	//UpdateCam3pSmoothAlgorithm();
-	updateCam3pNfsAlgorithm();
+	updateCam3pSmoothAlgorithm();
+	//updateCam3pNfsAlgorithm();
 }
 
 void updateCustomCamera() 
