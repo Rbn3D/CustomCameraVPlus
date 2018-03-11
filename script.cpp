@@ -180,7 +180,8 @@ bool AreSameFloat(float a, float b)
 }
 
 float getDeltaTime() {
-	return SYSTEM::TIMESTEP();
+	//return SYSTEM::TIMESTEP();
+	return GAMEPLAY::GET_FRAME_TIME();
 }
 
 std::string SubstringOfCString(const char *cstr,
@@ -1397,13 +1398,17 @@ void updateCam3pSmoothAlgorithm()
 	//if(isBike)
 	//	camPointAt(customCam, finalPosCenter + (-up * .170f));
 	//else
-	camPointAt(customCam, finalPosCenter + (-up * .170f) + (offsetLatPointFront * -1.4825f));
+	Vector3f rotEuler = QuatToEuler(finalQuat);
+
+	rotEuler[1] = 0.f;
+
+	CAM::SET_CAM_ROT(customCam, rotEuler.x(), rotEuler.y(), rotEuler.z(), 2);
 }
 
 void updateCam3pNfsAlgorithm()
 {
 	Vector3f extraCamHeight = up * (0.14f + extraAngleCamHeight);
-	Vector3f posCenter = vehPos + (up * heightOffset3P);
+	Vector3f posCenter = vehPos + (up * heightOffset3P) + (vehForwardVector * 0.4f);
 
 	semiDelayedVehSpeed = lerp(semiDelayedVehSpeed, vehSpeed, clamp01(max(2.5f, vehSpeed) * getDeltaTime()));
 	delayedVehSpeed = lerp(delayedVehSpeed, semiDelayedVehSpeed, clamp01(max(0.5f, semiDelayedVehSpeed * 0.75f) * getDeltaTime()));
@@ -1425,12 +1430,12 @@ void updateCam3pNfsAlgorithm()
 
 	distIncFinal += deccelerationSmooth * (1.f - smoothIsInAir);
 
-	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * ENTITY::IS_ENTITY_IN_AIR(veh) ? 0.6f : 1.2f);
+	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * (lerp(0.6f, 1.2f, smoothIsInAirNfs)));
 
 	velocityQuat3P = lookRotation(smoothVelocity);
 	Quaternionf finalQuat3P = slerp(smoothQuat3P, velocityQuat3P, smoothIsInAir);
 
-	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * (longitudeOffset3P + distIncFinal + airDistance));
+	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * ((longitudeOffset3P) + distIncFinal + airDistance));
 	Vector3f camPosFinal = camPosSmooth;
 
 	Vector3f lookAt = posCenter + finalQuat3P * front * (longitudeOffset3P);
@@ -1446,8 +1451,8 @@ void updateCam3pNfsAlgorithm()
 }
 
 void updateCameraSmooth3P() {
-	updateCam3pSmoothAlgorithm();
-	//updateCam3pNfsAlgorithm();
+	//updateCam3pSmoothAlgorithm();
+	updateCam3pNfsAlgorithm();
 }
 
 void updateCustomCamera() 
@@ -1796,7 +1801,9 @@ void update()
 
 			if (IsKeyJustUp(str2key(reloadKey))) {
 				//showDebug = !showDebug; // TODO Comment this line out before release!
+				haltCurrentCamera();
 				ReadSettings(true);
+				setupCurrentCamera();
 			}
 
 			updateTimers();
