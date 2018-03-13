@@ -174,6 +174,9 @@ char * toggleModKey = "1";
 char * lookLeftKey = "B";
 char * lookRightKey = "N";
 
+bool hasGamepadInputThisFrame = false;
+bool hasMouseInputThisFrame = false;
+
 bool AreSameFloat(float a, float b)
 {
 	return fabs(a - b) < FLT_EPSILON;
@@ -427,11 +430,27 @@ void updateMouseState() {
 
 	if (isAiming || movX >= 1 || movY >= 1) { // Mouse moved on last frame
 
+		hasMouseInputThisFrame = true;
+
 		if (isInVehicle && customCamEnabled && mouseMoveCountdown <= 0.0001f && smoothIsMouseLooking <= 0.001f)
 			setGameplayCamRelativeRotation(relAngle3p); // Sync gameplay cam rotarion
 
 		mouseMoveCountdown = 1.5f;
 	}
+	else
+		hasMouseInputThisFrame = false;
+
+	if (
+		CONTROLS::IS_CONTROL_PRESSED(2, eControl::ControlLookUpOnly) ||
+		CONTROLS::IS_CONTROL_PRESSED(2, eControl::ControlLookLeftOnly) ||
+		CONTROLS::IS_CONTROL_PRESSED(2, eControl::ControlLookRightOnly) ||
+		CONTROLS::IS_CONTROL_PRESSED(2, eControl::ControlLookDownOnly)
+	   )
+	{
+		hasGamepadInputThisFrame = true;
+	}
+	else
+		hasGamepadInputThisFrame = false;
 
 	if((veh != NULL && (vehSpeed > 0.1)) || veh == NULL)
 		mouseMoveCountdown = max(0.f, mouseMoveCountdown - (SYSTEM::TIMESTEP() * clamp01(vehSpeed * 0.08f)));
@@ -933,6 +952,13 @@ void updateVehicleVars()
 	vehForwardVector = toV3f(ENTITY::GET_ENTITY_FORWARD_VECTOR(veh));
 	vehSpeed = ENTITY::GET_ENTITY_SPEED(veh);
 	smoothVelocity = lerp(smoothVelocity, vehSpeed > 2.f ? vehVelocity : vehForwardVector, 10.f * getDeltaTime());
+
+	if ((ENTITY::IS_ENTITY_IN_AIR(veh) || (ENTITY::GET_ENTITY_UPRIGHT_VALUE(veh) < 0.6f)) && smoothIsInAir < 0.001f)
+	{
+		smoothVelocity = getCameraForwardVector(customCam);
+		velocityQuat3P = lookRotation(smoothVelocity);
+	}
+
 	smoothIsInAir = lerp(smoothIsInAir, (ENTITY::IS_ENTITY_IN_AIR(veh) || ENTITY::IS_ENTITY_UPSIDEDOWN(veh)) ? 1.f : 0.f, 2.f * getDeltaTime());
 	smoothIsInAirNfs = lerp(smoothIsInAirNfs, (ENTITY::IS_ENTITY_IN_AIR(veh)) ? 1.f : 0.f, 0.75f * getDeltaTime());
 	vehRightVector = toV3f(getRightVector(vehRot));
@@ -1408,7 +1434,7 @@ void updateCam3pSmoothAlgorithm()
 void updateCam3pNfsAlgorithm()
 {
 	Vector3f extraCamHeight = up * (0.14f + extraAngleCamHeight);
-	Vector3f posCenter = vehPos + (up * heightOffset3P) + (vehForwardVector * 0.4f);
+	Vector3f posCenter = vehPos + (up * heightOffset3P) + (vehForwardVector * 0.365f);
 
 	semiDelayedVehSpeed = lerp(semiDelayedVehSpeed, vehSpeed, clamp01(max(2.5f, vehSpeed) * getDeltaTime()));
 	delayedVehSpeed = lerp(delayedVehSpeed, semiDelayedVehSpeed, clamp01(max(0.5f, semiDelayedVehSpeed * 0.75f) * getDeltaTime()));
@@ -1433,15 +1459,73 @@ void updateCam3pNfsAlgorithm()
 	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * (lerp(0.6f, 1.2f, smoothIsInAirNfs)));
 
 	velocityQuat3P = lookRotation(smoothVelocity);
-	Quaternionf finalQuat3P = slerp(smoothQuat3P, velocityQuat3P, smoothIsInAir);
 
-	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * ((longitudeOffset3P) + distIncFinal + airDistance));
+	bool lookBehind = false;
+	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || isLookingBack)
+		lookBehind = true;
+
+	float lookHorizontalAngle = 0.f;
+	if (!lookBehind) {
+		lookHorizontalAngle = RelativeLookFactor < 0 ?
+			lerp(0.f, -LookLeftAngle3p, -RelativeLookFactor)
+			:
+			lerp(0.f, LookRightAngle3p, RelativeLookFactor)
+			;
+	}
+	else
+	{
+		lookHorizontalAngle = 180.f;
+	}
+
+	if (hasGamepadInputThisFrame && AreSameFloat(lookHorizontalAngle, 0.f)) 
+	{
+		//float leftNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftOnly);
+		float rightNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookRight);
+		float upNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUp);
+		//float downNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookDownOnly);
+
+		float x = rightNormal;// - leftNormal;
+		float y = upNormal;// - downNormal;
+
+		float r = sqrt(x * x + y * y);
+		float maxComp = max(abs(x), abs(y));
+		if (maxComp > 0) {
+			x *= r / maxComp;
+			y *= r / maxComp;
+		}
+
+		float degress = atan2(y, x) * 180.f / PI;
+
+		lookHorizontalAngle = degress - 90.f;
+	}
+
+
+	float leftRightRad = lookHorizontalAngle * DEG_TO_RAD;
+
+	float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
+	Quaternionf qLookLeftRight;
+	qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
+		* AngleAxisf(pitch, Vector3f::UnitY())
+		* AngleAxisf(yaw, Vector3f::UnitZ());
+
+	float btnLookingFactor = (abs(RelativeLookFactor));
+
+	if (lookBehind)
+		btnLookingFactor = 1.f;
+
+	Quaternionf finalQuat3P = slerp(smoothQuat3P * qLookLeftRight, velocityQuat3P, smoothIsInAir);
+
+	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * ((longitudeOffset3P) + 0.15f + airDistance));
+
+	camPosSmooth += slerp(smoothQuat3P, velocityQuat3P, smoothIsInAir) * back * distIncFinal;
+
 	Vector3f camPosFinal = camPosSmooth;
 
 	Vector3f lookAt = posCenter + finalQuat3P * front * (longitudeOffset3P);
 
 	setCamPos(customCam, camPosFinal);
 	//camPointAt(customCam, lookAt);
+
 
 	Vector3f rotEuler = QuatToEuler(finalQuat3P);
 
@@ -1484,6 +1568,7 @@ void DisableCustomCamera()
 	CAM::RENDER_SCRIPT_CAMS(false, false, 3000, true, false);
 	camInitialized = false;
 	isInVehicle = false;
+	veh = NULL;
 	
 	haltCurrentCamera();
 }
@@ -1800,9 +1885,16 @@ void update()
 			}
 
 			if (IsKeyJustUp(str2key(reloadKey))) {
-				//showDebug = !showDebug; // TODO Comment this line out before release!
+
 				haltCurrentCamera();
+
+				updateVehicleVars();
+				updateVehicleProperties();
+
+				setupCustomCamera();
+
 				ReadSettings(true);
+
 				setupCurrentCamera();
 			}
 
