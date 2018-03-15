@@ -17,6 +17,8 @@
 
 using namespace NativeMenu;
 
+HWND hWnd;
+
 float smoothIsMouseLooking = 0.f;
 float viewLock = 0.f;
 float smoothViewLock = 0.f;
@@ -91,6 +93,7 @@ Vector3f smoothSurfaceNormal;
 Vector3f smoothVelocity = Vector3f();
 Quaternionf velocityQuat3P = Quaternionf();
 Quaternionf smoothQuat3P = Quaternionf();
+Quaternionf ultraSmoothQuat3P = Quaternionf();
 Vector3f smoothRotSeat = Vector3f();
 Quaternionf smoothQuatSeat = Quaternionf();
 float smoothIsInAir = 0.f;
@@ -163,6 +166,13 @@ Vector3f prevCamPos;
 
 bool isLookingBack = false;
 
+float timerResetLook = 0.f;
+Quaternionf lookQuat;
+
+float mouseDeltaX = 0.f;
+float mouseDeltaY = 0.f;
+
+
 // look left = -1.f; lookRight = 1.f; Center = 0.f (For smooth transitions)
 float RelativeLookFactor = 0.f;
 
@@ -174,7 +184,7 @@ char * toggleModKey = "1";
 char * lookLeftKey = "B";
 char * lookRightKey = "N";
 
-bool hasGamepadInputThisFrame = false;
+bool hasInputThisFrame = false;
 bool hasMouseInputThisFrame = false;
 
 bool AreSameFloat(float a, float b)
@@ -428,6 +438,9 @@ void updateMouseState() {
 	int movX = abs(lastX - currX);
 	int movY = abs(lastY - currY);
 
+	mouseDeltaX = currX - lastX;
+	mouseDeltaY = currY - lastY;
+
 	if (isAiming || movX >= 1 || movY >= 1) { // Mouse moved on last frame
 
 		hasMouseInputThisFrame = true;
@@ -440,17 +453,19 @@ void updateMouseState() {
 	else
 		hasMouseInputThisFrame = false;
 
+	float x = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight);
+	float y = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown);
+
 	if (
-		CONTROLS::IS_CONTROL_PRESSED(2, eControl::ControlLookUpOnly) ||
-		CONTROLS::IS_CONTROL_PRESSED(2, eControl::ControlLookLeftOnly) ||
-		CONTROLS::IS_CONTROL_PRESSED(2, eControl::ControlLookRightOnly) ||
-		CONTROLS::IS_CONTROL_PRESSED(2, eControl::ControlLookDownOnly)
+		(fabs(x) > 0.005f)
+		||
+		(fabs(y) > 0.005f)
 	   )
 	{
-		hasGamepadInputThisFrame = true;
+		hasInputThisFrame = true;
 	}
 	else
-		hasGamepadInputThisFrame = false;
+		hasInputThisFrame = false;
 
 	if((veh != NULL && (vehSpeed > 0.1)) || veh == NULL)
 		mouseMoveCountdown = max(0.f, mouseMoveCountdown - (SYSTEM::TIMESTEP() * clamp01(vehSpeed * 0.08f)));
@@ -554,7 +569,7 @@ void ReadSettings(bool notify)
 		ShowNotification("CCVPlus: Cannot load settings! Missing ini file?");
 }
 
-/*
+
 // showText() taken from https://github.com/E66666666/GTAVManualTransmission/
 void showText(float x, float y, float scale, const char* text, int font, const Color &rgba, bool outline) {
 	UI::SET_TEXT_FONT(font);
@@ -567,7 +582,7 @@ void showText(float x, float y, float scale, const char* text, int font, const C
 	UI::ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(CharAdapter(text));
 	UI::END_TEXT_COMMAND_DISPLAY_TEXT(x, y);
 }
-*/
+
 
 Vector3f getDimensions(Hash modelHash) {
 	Vector3 min;
@@ -606,6 +621,13 @@ void firstInit()
 	UINT_PTR address = FindPattern("\x48\x8B\xC7\xF3\x0F\x10\x0D", "xxxxxxx") - 0x1D;
 	address = address + *reinterpret_cast<int*>(address) + 4;
 	gamePlayCameraAddr = *reinterpret_cast<UINT_PTR*>(*reinterpret_cast<int*>(address + 3) + address + 7);
+
+	hWnd = FindWindow(NULL, "Grand Theft Auto V");
+
+	enum Button
+	{
+		ButtonConfirm
+	};
 
 	ReadSettings(false);
 }
@@ -1431,6 +1453,11 @@ void updateCam3pSmoothAlgorithm()
 	CAM::SET_CAM_ROT(customCam, rotEuler.x(), rotEuler.y(), rotEuler.z(), 2);
 }
 
+bool LastInputMethodWasMouseAndKeyboard()
+{
+	return CONTROLS::_IS_INPUT_DISABLED(2);
+}
+
 void updateCam3pNfsAlgorithm()
 {
 	Vector3f extraCamHeight = up * (0.14f + extraAngleCamHeight);
@@ -1441,6 +1468,21 @@ void updateCam3pNfsAlgorithm()
 
 	Quaternionf vehQuat = getEntityQuaternion(veh);
 	smoothQuat3P = slerp(smoothQuat3P, vehQuat, 3.f * getDeltaTime());
+	ultraSmoothQuat3P = slerp(ultraSmoothQuat3P, vehQuat, 1.8f * getDeltaTime());
+	velocityQuat3P = lookRotation(smoothVelocity);
+
+	if (isBike && vehSpeed > 1.f) 
+	{
+		Vector3f smoothEuler = QuatToEuler(ultraSmoothQuat3P);
+
+		Vector3f latv = vehRightVector.cross(smoothVelocity);
+		latv[1] = 0.f;
+		latv.normalize();
+
+		smoothEuler[0] = latv[0];
+
+		smoothQuat3P = QuatEuler(smoothEuler);
+	}
 
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45f * getDeltaTime());
 	currentTowLongitudeIncrement = lerp(currentTowLongitudeIncrement, towLongitudeIncrement, 1.75f * getDeltaTime());
@@ -1457,8 +1499,6 @@ void updateCam3pNfsAlgorithm()
 	distIncFinal += deccelerationSmooth * (1.f - smoothIsInAir);
 
 	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * (lerp(0.6f, 1.2f, smoothIsInAirNfs)));
-
-	velocityQuat3P = lookRotation(smoothVelocity);
 
 	bool lookBehind = false;
 	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || isLookingBack)
@@ -1477,28 +1517,27 @@ void updateCam3pNfsAlgorithm()
 		lookHorizontalAngle = 180.f;
 	}
 
-	if (hasGamepadInputThisFrame && AreSameFloat(lookHorizontalAngle, 0.f)) 
-	{
-		//float leftNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftOnly);
-		float rightNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookRight);
-		float upNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUp);
-		//float downNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookDownOnly);
+	//if (!isAiming && hasInputThisFrame && AreSameFloat(lookHorizontalAngle, 0.f)) 
+	//{
+	//	//float leftNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftOnly);
+	//	float rightNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeft);
+	//	float upNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookDown);
+	//	//float downNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookDownOnly);
 
-		float x = rightNormal;// - leftNormal;
-		float y = upNormal;// - downNormal;
+	//	float x = rightNormal;// - leftNormal;
+	//	float y = upNormal;// - downNormal;
 
-		float r = sqrt(x * x + y * y);
-		float maxComp = max(abs(x), abs(y));
-		if (maxComp > 0) {
-			x *= r / maxComp;
-			y *= r / maxComp;
-		}
+	//	float r = sqrt(x * x + y * y);
+	//	float maxComp = max(abs(x), abs(y));
+	//	if (maxComp > 0) {
+	//		x *= r / maxComp;
+	//		y *= r / maxComp;
+	//	}
 
-		float degress = atan2(y, x) * 180.f / PI;
+	//	float degress = atan2(y, x) * 180.f / PI;
 
-		lookHorizontalAngle = degress - 90.f;
-	}
-
+	//	lookHorizontalAngle = degress - 90.f;
+	//}
 
 	float leftRightRad = lookHorizontalAngle * DEG_TO_RAD;
 
@@ -1515,17 +1554,44 @@ void updateCam3pNfsAlgorithm()
 
 	Quaternionf finalQuat3P = slerp(smoothQuat3P * qLookLeftRight, velocityQuat3P, smoothIsInAir);
 
-	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * ((longitudeOffset3P) + 0.15f + airDistance));
+	if (isAiming || hasInputThisFrame)
+	{
+		if (timerResetLook < 0.00001f)
+		{
+			lookQuat = finalQuat3P;
+		}
+		timerResetLook = 2.f;
 
+		float mx = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight)) * -5.f;
+		float my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * -5.f;
+
+		if (!LastInputMethodWasMouseAndKeyboard()) 
+		{
+			mx *= 0.6f;
+			my *= -0.6f;
+		}
+
+		Vector3f vecLook = Vector3f(my, 0.f, mx);
+
+		Quaternionf result = lookQuat * QuatEuler(vecLook);
+		Vector3f resultEuler = QuatToEuler(result);
+
+		float rx = clamp(resultEuler[0], -62.f, 40.f);
+
+		lookQuat = QuatEuler(Vector3f(rx, 0.f, resultEuler[2]));
+	}
+
+	timerResetLook = clamp(timerResetLook - getDeltaTime(), 0.f, 2.f);
+
+	finalQuat3P = slerp(finalQuat3P, lookQuat, clamp01(timerResetLook));
+	//finalQuat3P = lookQuat;
+
+	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * ((longitudeOffset3P) + 0.15f + airDistance));
 	camPosSmooth += slerp(smoothQuat3P, velocityQuat3P, smoothIsInAir) * back * distIncFinal;
 
 	Vector3f camPosFinal = camPosSmooth;
 
-	Vector3f lookAt = posCenter + finalQuat3P * front * (longitudeOffset3P);
-
 	setCamPos(customCam, camPosFinal);
-	//camPointAt(customCam, lookAt);
-
 
 	Vector3f rotEuler = QuatToEuler(finalQuat3P);
 
@@ -1580,12 +1646,6 @@ float getVehicleLongitude(Vehicle vehicle) {
 
 	float maxBackDistance = 0.f;
 	float maxFrontDistance = 0.f;
-
-	//Vector3f backBonePos;
-	//Vector3f frontBonePos;
-
-	//const char * boneNameBack;
-	//const char * boneNameFront;
 
 	for (const char *boneName : vehicleBones)
 	{
@@ -1926,7 +1986,7 @@ void update()
 	}
 	else
 	{
-		veh = -1;
+		veh = NULL;
 		ResetMouseLook();
 		DisableCustomCamera();
 		return;

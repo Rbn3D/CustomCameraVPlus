@@ -29,7 +29,6 @@ using namespace Eigen;
     #define M_PI 3.14159265358979323846
 #endif 
 
-
 void DisableCustomCamera();
 
 float getVehicleLongitude(Vehicle vehicle);
@@ -51,6 +50,8 @@ BOOL GetDecoratorBool(char * decoratorKey);
 Vector3f GetBonePos(Entity entity, char * boneName);
 
 void updateCam3pSmoothAlgorithm();
+
+bool LastInputMethodWasMouseAndKeyboard();
 
 void updateVehicleProperties();
 
