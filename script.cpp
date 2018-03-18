@@ -401,15 +401,15 @@ float DegToRad(const float &deg)
 	return float(deg * M_PI / 180.0);
 }
 
-Quaternionf QuatEuler(Vector3f &camVec)
+Quaternionf QuatEuler(Vector3f &euler)
 {
-	Vector3f rotVec = DegToRad(1.0f) * camVec;
+	Vector3f rotVec = DegToRad(1.0f) * euler;
 
 	Matrix3f xRot = AngleAxisf(rotVec.x(), Vector3f(1.0f, 0.0f, 0.0f)).matrix();
 	Matrix3f yRot = AngleAxisf(rotVec.y(), Vector3f(0.0f, 1.0f, 0.0f)).matrix();
 	Matrix3f zRot = AngleAxisf(rotVec.z(), Vector3f(0.0f, 0.0f, 1.0f)).matrix();
 
-	Matrix3f rot = zRot * yRot*xRot;
+	Matrix3f rot = zRot * yRot * xRot;
 
 	return Quaternionf(rot);
 }
@@ -427,32 +427,8 @@ Vector2i getMouseCoords() {
 	return Vector2i(mX, mY);
 }
 
-void updateMouseState() {
-	int lastX = lastMouseCoords.x();
-	int lastY = lastMouseCoords.y();
-
-	Vector2i currXY = getMouseCoords();
-	int currX = currXY.x();
-	int currY = currXY.y();
-
-	int movX = abs(lastX - currX);
-	int movY = abs(lastY - currY);
-
-	mouseDeltaX = currX - lastX;
-	mouseDeltaY = currY - lastY;
-
-	if (isAiming || movX >= 1 || movY >= 1) { // Mouse moved on last frame
-
-		hasMouseInputThisFrame = true;
-
-		if (isInVehicle && customCamEnabled && mouseMoveCountdown <= 0.0001f && smoothIsMouseLooking <= 0.001f)
-			setGameplayCamRelativeRotation(relAngle3p); // Sync gameplay cam rotarion
-
-		mouseMoveCountdown = 1.5f;
-	}
-	else
-		hasMouseInputThisFrame = false;
-
+void updateMouseState() 
+{
 	float x = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight);
 	float y = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown);
 
@@ -466,11 +442,6 @@ void updateMouseState() {
 	}
 	else
 		hasInputThisFrame = false;
-
-	if((veh != NULL && (vehSpeed > 0.1)) || veh == NULL)
-		mouseMoveCountdown = max(0.f, mouseMoveCountdown - (SYSTEM::TIMESTEP() * clamp01(vehSpeed * 0.08f)));
-
-	lastMouseCoords = currXY;
 }
 
 void setGameplayCamRelativeRotation(float heading) {
@@ -866,10 +837,6 @@ Vector3f lookRotEuler(Vector3f dir, Vector3f upVector) {
 	return lookM.eulerAngles(2, 1, 0);
 }
 
-Vector3f QuatEuler(Quaternionf quat) {
-	return quat.toRotationMatrix().eulerAngles(1, 0, 2);
-}
-
 Quaternionf getEntityQuaternion(Entity entity) {
 
 	float x, y, z, w;
@@ -1085,49 +1052,63 @@ void updateCameraDriverSeat() {
 		//smoothRotSeat = Vector3fLerpAngle(smoothRotSeat, rot, clamp01(30.f * getDeltaTime()));
 		smoothQuatSeat = getEntityQuaternion(veh);
 
-		if (smoothIsMouseLooking > 0.001f && btnLookingFactor < 0.001f) {
-			Vector3f gameplayCamRot = toV3f(CAM::GET_GAMEPLAY_CAM_ROT(2));
-			Vector3f finalRotSeat = Vector3fLerpAngle(rot, gameplayCamRot, smoothIsMouseLooking);
-			CAM::SET_CAM_ROT(customCam, finalRotSeat.x(), finalRotSeat.y(), finalRotSeat.z(), 2);
-		}
-		else
+		float leftRightAngle = RelativeLookFactor < 0 ?
+			lerp(0.f, -LookLeftAngle1p, -RelativeLookFactor)
+			:
+			lerp(0.f, LookRightAngle1p, RelativeLookFactor)
+			;
+
+		float leftRightRad = leftRightAngle * DEG_TO_RAD;
+
+		float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
+		Quaternionf qLookLeftRight;
+		qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
+			* AngleAxisf(pitch, Vector3f::UnitY())
+			* AngleAxisf(yaw, Vector3f::UnitZ());
+
+		Quaternionf finalQ = smoothQuatSeat * qLookLeftRight;
+
+		if (isAiming || hasInputThisFrame)
 		{
-			float leftRightAngle = RelativeLookFactor < 0 ?
-				lerp(0.f, -LookLeftAngle1p, -RelativeLookFactor)
-				:
-				lerp(0.f, LookRightAngle1p, RelativeLookFactor)
-				;
+			if (timerResetLook < 0.00001f)
+			{
+				lookQuat = finalQ;
+			}
+			timerResetLook = 2.f;
 
-			float leftRightRad = leftRightAngle * DEG_TO_RAD;
+			float mx = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight)) * -5.f;
+			float my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * (LastInputMethodWasMouseAndKeyboard ? -5.f : 5.f);
 
-			float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
-			Quaternionf qLookLeftRight;
-			qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
-				* AngleAxisf(pitch, Vector3f::UnitY())
-				* AngleAxisf(yaw, Vector3f::UnitZ());
+			if (!LastInputMethodWasMouseAndKeyboard())
+			{
+				mx *= 0.6f;
+				my *= 0.6f;
+			}
 
-			SET_CAM_QUATERNION(customCam, smoothQuatSeat * qLookLeftRight);
+			Vector3f vecLook = Vector3f(my, 0.f, mx);
 
+			Quaternionf result = lookQuat * QuatEuler(vecLook);
+			Vector3f resultEuler = QuatToEuler(result);
+
+			float rx = clamp(resultEuler[0], -62.f, 40.f);
+
+			lookQuat = QuatEuler(Vector3f(rx, 0.f, resultEuler[2]));
 		}
+
+		timerResetLook = clamp(timerResetLook - getDeltaTime(), 0.f, 2.f);
+
+		finalQ = slerp(finalQ, lookQuat, clamp01(timerResetLook));
+
+		SET_CAM_QUATERNION(customCam, finalQ);
 	}
 	else
 	{
 		CAM::STOP_CAM_POINTING(customCam);
 
 		Vector3f rot = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
-		Quaternionf rotQuat = getEntityQuaternion(veh);
-		//smoothRotSeat = Vector3fLerpAngle(smoothRotSeat, rot, clamp01(30.f * SYSTEM::TIMESTEP()));
-		//smoothRotSeat = Vector3fInertialDampAngle(smoothRotSeat, rot, 0.06f);
-		smoothRotSeat = Vector3fLerpAngle(smoothRotSeat, rot, clamp01(30.f * getDeltaTime()));
-		smoothQuatSeat = slerp(smoothQuatSeat, rotQuat, clamp01(30.f * getDeltaTime()));
+		smoothQuatSeat = getEntityQuaternion(veh);
 
-		if (smoothIsMouseLooking > 0.001f && btnLookingFactor < 0.001f) {
-			Vector3f gameplayCamRot = toV3f(CAM::GET_GAMEPLAY_CAM_ROT(2));
-			Vector3f finalRotSeat = Vector3fLerpAngle(smoothRotSeat, gameplayCamRot, smoothIsMouseLooking);
-			CAM::SET_CAM_ROT(customCam, finalRotSeat.x(), finalRotSeat.y(), finalRotSeat.z(), 2);
-		}
-		else
-		{
+
 			float leftRightAngle = RelativeLookFactor < 0 ?
 					lerp(0.f, -LookLeftAngle1p, -RelativeLookFactor)
 				:
@@ -1142,8 +1123,40 @@ void updateCameraDriverSeat() {
 				* AngleAxisf(pitch, Vector3f::UnitY())
 				* AngleAxisf(yaw, Vector3f::UnitZ());
 
-			SET_CAM_QUATERNION(customCam, smoothQuatSeat * qLookLeftRight);
-		}	
+			Quaternionf finalQ = smoothQuatSeat * qLookLeftRight;
+
+			if (isAiming || hasInputThisFrame)
+			{
+				if (timerResetLook < 0.00001f)
+				{
+					lookQuat = finalQ;
+				}
+				timerResetLook = 2.f;
+
+				float mx = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight)) * -5.f;
+				float my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * (LastInputMethodWasMouseAndKeyboard ? -5.f : 5.f);
+
+				if (!LastInputMethodWasMouseAndKeyboard())
+				{
+					mx *= 0.6f;
+					my *= 0.6f;
+				}
+
+				Vector3f vecLook = Vector3f(my, 0.f, mx);
+
+				Quaternionf result = lookQuat * QuatEuler(vecLook);
+				Vector3f resultEuler = QuatToEuler(result);
+
+				float rx = clamp(resultEuler[0], -62.f, 40.f);
+
+				lookQuat = QuatEuler(Vector3f(rx, 0.f, resultEuler[2]));
+			}
+
+			timerResetLook = clamp(timerResetLook - getDeltaTime(), 0.f, 2.f);
+
+			finalQ = slerp(finalQ, lookQuat, clamp01(timerResetLook));
+
+			SET_CAM_QUATERNION(customCam, finalQ);
 	}
 
 	CAM::RENDER_SCRIPT_CAMS(true, false, 3000, 1, 0);
@@ -1468,20 +1481,20 @@ void updateCam3pNfsAlgorithm()
 
 	Quaternionf vehQuat = getEntityQuaternion(veh);
 	smoothQuat3P = slerp(smoothQuat3P, vehQuat, 3.f * getDeltaTime());
-	ultraSmoothQuat3P = slerp(ultraSmoothQuat3P, vehQuat, 1.8f * getDeltaTime());
 	velocityQuat3P = lookRotation(smoothVelocity);
 
-	if (isBike && vehSpeed > 1.f) 
+	//float vehPitch = QuatToEuler(velocityQuat3P).x();
+
+	if (/*isBike && */ vehSpeed > 1.f) 
 	{
-		Vector3f smoothEuler = QuatToEuler(ultraSmoothQuat3P);
+		Quaternionf quatVel = velocityQuat3P;
 
-		Vector3f latv = vehRightVector.cross(smoothVelocity);
-		latv[1] = 0.f;
-		latv.normalize();
+		Vector3f VquatVel = QuatToEuler(velocityQuat3P);
+		Vector3f sm3p = QuatToEuler(smoothQuat3P);
 
-		smoothEuler[0] = latv[0];
+		VquatVel[2] = sm3p[2];
 
-		smoothQuat3P = QuatEuler(smoothEuler);
+		smoothQuat3P = QuatEuler(VquatVel);
 	}
 
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45f * getDeltaTime());
@@ -1563,12 +1576,12 @@ void updateCam3pNfsAlgorithm()
 		timerResetLook = 2.f;
 
 		float mx = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight)) * -5.f;
-		float my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * -5.f;
+		float my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * (LastInputMethodWasMouseAndKeyboard ? -5.f : 5.f);
 
 		if (!LastInputMethodWasMouseAndKeyboard()) 
 		{
 			mx *= 0.6f;
-			my *= -0.6f;
+			my *= 0.6f;
 		}
 
 		Vector3f vecLook = Vector3f(my, 0.f, mx);
@@ -1586,7 +1599,18 @@ void updateCam3pNfsAlgorithm()
 	finalQuat3P = slerp(finalQuat3P, lookQuat, clamp01(timerResetLook));
 	//finalQuat3P = lookQuat;
 
-	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * ((longitudeOffset3P) + 0.15f + airDistance));
+	if (smoothIsAiming > 0.00001f) {
+		float currentFov = lerp(fov3P, fov3PAiming, smoothIsAiming);
+		CAM::SET_CAM_FOV(customCam, currentFov);
+	}
+
+	if (isAiming) {
+		UI::SHOW_HUD_COMPONENT_THIS_FRAME(eHudComponent::HudComponentReticle);
+	}
+
+	float aimHeightIncrement = lerp(0.f, 0.22f, smoothIsAiming);
+
+	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * ((longitudeOffset3P) + 0.15f + airDistance)) + (up * aimHeightIncrement);
 	camPosSmooth += slerp(smoothQuat3P, velocityQuat3P, smoothIsInAir) * back * distIncFinal;
 
 	Vector3f camPosFinal = camPosSmooth;
@@ -1986,7 +2010,6 @@ void update()
 	}
 	else
 	{
-		veh = NULL;
 		ResetMouseLook();
 		DisableCustomCamera();
 		return;
