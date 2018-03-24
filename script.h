@@ -29,7 +29,6 @@ using namespace Eigen;
     #define M_PI 3.14159265358979323846
 #endif 
 
-
 void DisableCustomCamera();
 
 float getVehicleLongitude(Vehicle vehicle);
@@ -49,6 +48,10 @@ void ProccessLookLeftRightOrBackInput();
 BOOL GetDecoratorBool(char * decoratorKey);
 
 Vector3f GetBonePos(Entity entity, char * boneName);
+
+void updateCam3pSmoothAlgorithm();
+
+bool LastInputMethodWasMouseAndKeyboard();
 
 void updateVehicleProperties();
 
@@ -159,8 +162,8 @@ const char* const vehicleBones[] =
 	"steering",
 	"hbgrip_l",
 	"hbgrip_r",
-	"headlight_l",
-	"headlight_r",
+	//"headlight_l",
+	//"headlight_r",
 	//"taillight_l",
 	//"taillight_r",
 	//"indicator_lf",
@@ -170,13 +173,13 @@ const char* const vehicleBones[] =
 	//"brakelight_l",
 	//"brakelight_r",
 	//"brakelight_m",
-	"reversinglight_l",
-	"reversinglight_r",
-	"extralight_1",
-	"extralight_2",
-	"extralight_3",
-	"extralight_4",
-	"numberplate",
+	//"reversinglight_l",
+	//"reversinglight_r",
+	//"extralight_1",
+	//"extralight_2",
+	//"extralight_3",
+	//"extralight_4",
+	//"numberplate",
 	//"interiorlight",
 	"siren1",
 	"siren2",
@@ -482,3 +485,4 @@ const char* const vehicleBones[] =
 	"neon_b"
 };
 
+Quaternionf QuatEuler(Eigen::Vector3f &camVec);

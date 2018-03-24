@@ -1,0 +1,13 @@
+
+1.0:
+
+* Reworked 3rd person camera algorithm (completely rewritten)
+* 3rd person camera rotation doesn't get affected by suspension bounciness
+* Look around/aim/shoot has been reimplemented and now supports gamepad as well as keyboard
+* Progressive deadzone implemented when looking with gamepad, for better aim precision
+* Look left/right quickly by pressing hotkeys (configurable via ini file)
+* Support to look left/right/back from steering wheel! 
+	Requires an AppVeyor build of Manual Transmission Mod by @ikt (link below):
+	https://ci.appveyor.com/project/E66666666/gtavmanualtransmission/build/artifacts
+
+* Other minor fixes and improvements
