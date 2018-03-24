@@ -7,11 +7,17 @@ This is a C++ version of my [Custom Camera V](https://github.com/Rbn3D/CustomCam
 ### Features ###
 
 * Supports Thrid person and first person vehicle cameras! Just switch between them by pressing "Next view" button! (key "V" by default)
-* Allows aim/shooting and look around (only mouse for now)
+* Allows aim/shooting and look around (mouse and gamepad supported)
+* Progressive deadzone implemented when looking with gamepad, for better aim precision
 * Reworked system to update camera position and rotation. Much improved since *Custom Camera V*
 * Nice feeling of speed
 * Look behind by by pressing "Look Behind" button (key "C" by default)
+* Look left by pressing B, right by pressing N
 * Supports big vehicles, and even vehicles towing another vehicles
+* Support to look left/right/back from steering wheel! 
+	Requires an AppVeyor build of Manual Transmission Mod by @ikt (link below):
+	https://ci.appveyor.com/project/E66666666/gtavmanualtransmission/build/artifacts
+
 * Customizable FOV and other settings via INI file
 
 ### Requirements ###
@@ -32,6 +38,7 @@ https://www.gta5-mods.com/scripts/custom-camera-v-plus
 * Look around, aim and shoot just like with the built-in camera.
 * Switch between 3rd and 1st person view by pressing V (or other key mapped to switch views)
 * Look behind by pressing C (or other key mapped to look behind)
+* Look left by pressing B, right by pressing N
 * Toggle mod enabled by pressing 1.
 * Reload ini settings by pressing F10.
 

@@ -15,6 +15,10 @@ Usage:
 * Switch between 3rd and 1st person view by pressing V (or other key mapped to switch views)
 * Look left by pressing B, look right by pressing N
 * Look behind by pressing C (or other key mapped to look behind)
+* Look left/right/back from steering wheel! 
+	Requires an AppVeyor build of Manual Transmission Mod by @ikt (link below):
+	https://ci.appveyor.com/project/E66666666/gtavmanualtransmission/build/artifacts
+
 * Toggle mod enabled by pressing 1.
 * Reload ini settings by pressing F10.
 
