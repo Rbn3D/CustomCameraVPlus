@@ -1649,6 +1649,20 @@ void updateCam3pNfsAlgorithm()
 
 	setCamPos(customCam, camPosFinal);
 
+	// Raycast //
+	int ray = WORLDPROBE::_START_SHAPE_TEST_RAY(posCenter.x(), posCenter.y(), posCenter.z(), camPosFinal.x(), camPosFinal.y(), camPosFinal.z(), 1, veh, 7);
+
+	Vector3 endCoords, surfaceNormal;
+	BOOL hit;
+	Entity entityHit = 0;
+
+	WORLDPROBE::GET_SHAPE_TEST_RESULT(ray, &hit, &endCoords, &surfaceNormal, &entityHit);
+
+	if (hit) {
+		setCamPos(customCam, toV3f(endCoords) + (finalQuat3P * front * 0.1f));
+	}
+	// End raycast //
+
 	Vector3f rotEuler = QuatToEuler(finalQuat3P);
 
 	rotEuler[1] = 0.f;
