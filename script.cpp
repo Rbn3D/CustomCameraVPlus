@@ -91,9 +91,10 @@ Vector3f cachedSurfaceNormal;
 Vector3f smoothSurfaceNormal;
 
 Vector3f smoothVelocity = Vector3f();
+Vector3f ultraSmoothVelocity = Vector3f();
 Quaternionf velocityQuat3P = Quaternionf();
 Quaternionf smoothQuat3P = Quaternionf();
-Quaternionf ultraSmoothQuat3P = Quaternionf();
+Quaternionf ultraSmoothVelocity3P = Quaternionf();
 Vector3f smoothRotSeat = Vector3f();
 Quaternionf smoothQuatSeat = Quaternionf();
 float smoothIsInAir = 0.f;
@@ -554,6 +555,9 @@ void showText(float x, float y, float scale, const char* text, int font, const C
 	UI::END_TEXT_COMMAND_DISPLAY_TEXT(x, y);
 }
 
+void showText(int index, const char* text) {
+	showText(0.1f, 0.03f * (float)index, 0.3f, text, 0, solidWhite, true);
+}
 
 Vector3f getDimensions(Hash modelHash) {
 	Vector3 min;
@@ -941,6 +945,7 @@ void updateVehicleVars()
 	vehForwardVector = toV3f(ENTITY::GET_ENTITY_FORWARD_VECTOR(veh));
 	vehSpeed = ENTITY::GET_ENTITY_SPEED(veh);
 	smoothVelocity = lerp(smoothVelocity, vehSpeed > 2.f ? vehVelocity : vehForwardVector, 10.f * getDeltaTime());
+	ultraSmoothVelocity = lerp(ultraSmoothVelocity, vehSpeed > 2.f ? vehVelocity : vehForwardVector, 3.f * getDeltaTime());
 
 	if ((ENTITY::IS_ENTITY_IN_AIR(veh) || (ENTITY::GET_ENTITY_UPRIGHT_VALUE(veh) < 0.6f)) && smoothIsInAir < 0.001f)
 	{
@@ -1471,6 +1476,13 @@ bool LastInputMethodWasMouseAndKeyboard()
 	return CONTROLS::_IS_INPUT_DISABLED(2);
 }
 
+Vector3f V3Reflect(Vector3f vector, Vector3f normal) 
+{
+	float dot = vector.dot(normal);
+	Vector3f temp = normal * dot * 2.f;
+	return vector - temp;
+}
+
 void updateCam3pNfsAlgorithm()
 {
 	Vector3f extraCamHeight = up * (0.14f + extraAngleCamHeight);
@@ -1481,16 +1493,23 @@ void updateCam3pNfsAlgorithm()
 
 	Quaternionf vehQuat = getEntityQuaternion(veh);
 	smoothQuat3P = slerp(smoothQuat3P, vehQuat, 3.f * getDeltaTime());
+
 	velocityQuat3P = lookRotation(smoothVelocity);
+	ultraSmoothVelocity3P = lookRotation(ultraSmoothVelocity);
 
 	//float vehPitch = QuatToEuler(velocityQuat3P).x();
 
-	if (/*isBike && */ vehSpeed > 1.f) 
-	{
-		Quaternionf quatVel = velocityQuat3P;
+	float forwardness = vehForwardVector.dot(vehVelocity);
 
-		Vector3f VquatVel = QuatToEuler(velocityQuat3P);
-		Vector3f sm3p = QuatToEuler(smoothQuat3P);
+	if (/*isBike && */forwardness >= 0.f && vehSpeed > 1.f)
+	{
+		Vector3f VquatVel = QuatToEuler(ultraSmoothVelocity3P);
+		Vector3f sm3p;
+
+		//if (forwardness >= 0.f)
+			sm3p = QuatToEuler(smoothQuat3P);
+		//else
+		//	sm3p = QuatToEuler(inverseSmoothQuat3P);
 
 		VquatVel[2] = sm3p[2];
 
@@ -1578,10 +1597,23 @@ void updateCam3pNfsAlgorithm()
 		float mx = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight)) * -5.f;
 		float my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * (LastInputMethodWasMouseAndKeyboard ? -5.f : 5.f);
 
-		if (!LastInputMethodWasMouseAndKeyboard()) 
+		if (!LastInputMethodWasMouseAndKeyboard())  // if gamepad
 		{
-			mx *= 0.6f;
-			my *= 0.6f;
+			mx *= 0.2f;
+			my *= 0.2f;
+
+			//showText(1, std::to_string(mx).c_str());
+			//showText(2, std::to_string(my).c_str());
+
+			float deadzone = 0.275f;
+			Vector2f stickInput = Vector2f(mx, my);
+			if (stickInput.norm() < deadzone)
+				stickInput = Vector2f(0.f, 0.f);
+			else
+				stickInput = stickInput.normalized() * ((stickInput.norm() - deadzone) / (1.f - deadzone));
+
+			mx = stickInput.x() * 2.f;
+			my = stickInput.y() * 2.f;
 		}
 
 		Vector3f vecLook = Vector3f(my, 0.f, mx);
@@ -1610,7 +1642,7 @@ void updateCam3pNfsAlgorithm()
 
 	float aimHeightIncrement = lerp(0.f, 0.22f, smoothIsAiming);
 
-	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * ((longitudeOffset3P) + 0.15f + airDistance)) + (up * aimHeightIncrement);
+	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * ((longitudeOffset3P) + 0.185f + airDistance)) + (up * aimHeightIncrement);
 	camPosSmooth += slerp(smoothQuat3P, velocityQuat3P, smoothIsInAir) * back * distIncFinal;
 
 	Vector3f camPosFinal = camPosSmooth;
@@ -1658,7 +1690,7 @@ void DisableCustomCamera()
 	CAM::RENDER_SCRIPT_CAMS(false, false, 3000, true, false);
 	camInitialized = false;
 	isInVehicle = false;
-	veh = NULL;
+	//veh = NULL;
 	
 	haltCurrentCamera();
 }
@@ -1969,17 +2001,10 @@ void update()
 			}
 
 			if (IsKeyJustUp(str2key(reloadKey))) {
-
-				haltCurrentCamera();
-
+				ReadSettings(true);
 				updateVehicleVars();
 				updateVehicleProperties();
-
 				setupCustomCamera();
-
-				ReadSettings(true);
-
-				setupCurrentCamera();
 			}
 
 			updateTimers();
