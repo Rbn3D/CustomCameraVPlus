@@ -21,8 +21,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="CustomCameraVPlus.ini" />
+    <None Include="readme.md" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="changelog.txt" />
     <Text Include="Install.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
