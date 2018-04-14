@@ -587,7 +587,7 @@ void ReadSettings(bool notify)
 
 		readInputFromMt = ini.GetLongValue("general", "GetInputFromGearsAsi", 1l) > 0;
 
-		deadzone = clamp01((float)ini.GetDoubleValue("input", "deadzone", 0.0));
+		deadzone = clamp01((float)ini.GetDoubleValue("input", "gamepadDeadzone", 0.0));
 		gamepadAimEasing = ini.GetLongValue("input", "gamepadEasing", 1l) > 0;
 
 		gamepadSensibility = (float)ini.GetDoubleValue("input", "gamepadSensibility", 1.0);
