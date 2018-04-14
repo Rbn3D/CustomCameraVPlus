@@ -177,6 +177,11 @@ Quaternionf lookQuat;
 float mouseDeltaX = 0.f;
 float mouseDeltaY = 0.f;
 
+float deadzone = 0.f;
+bool gamepadAimEasing = true;
+
+float gamepadSensibility = 1.f;
+float mouseSensibility = 1.f;
 
 // look left = -1.f; lookRight = 1.f; Center = 0.f (For smooth transitions)
 float RelativeLookFactor = 0.f;
@@ -329,6 +334,50 @@ float easeInSineInput(float axisInput)
 		easeAbs *= -1.f;
 
 	return easeAbs;
+}
+
+Vector2f readLookAroundInput()
+{
+	float mx = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight)) * -5.f;
+	float my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * (LastInputMethodWasMouseAndKeyboard ? -5.f : 5.f);
+
+	if (!LastInputMethodWasMouseAndKeyboard())  // if gamepad
+	{
+		mx *= 0.2f;
+		my *= 0.2f;
+
+		//showText(1, std::to_string(mx).c_str());
+		//showText(2, std::to_string(my).c_str());
+
+
+		// apply deadzone
+		Vector2f stickInput = Vector2f(mx, my);
+		if (stickInput.norm() < deadzone)
+			stickInput = Vector2f(0.f, 0.f);
+		else
+			stickInput = stickInput.normalized() * ((stickInput.norm() - deadzone) / (1.f - deadzone));
+
+		mx = stickInput.x();
+		my = stickInput.y();
+
+
+		// apply easing 
+		if (gamepadAimEasing) {
+			mx = easeInSineInput(mx);
+			my = easeInSineInput(my);
+		}
+
+		// Scale (sensibility)
+		mx *= 2.f * gamepadSensibility;
+		my *= 2.f * gamepadSensibility;
+	}
+	else
+	{
+		mx *= mouseSensibility;
+		my *= mouseSensibility;
+	}
+
+	return Vector2f(mx, my);
 }
 
 inline void vadd_sse(const float *a, const float *b, float *r)
@@ -520,36 +569,29 @@ void ReadSettings(bool notify)
 	SI_Error res = ini.LoadFile("CustomCameraVPlus.ini");
 
 	if (res == SI_Error::SI_OK) {
-		const char* dist3rdPerson = ini.GetValue("3rdPersonView", "distanceOffset", "0.0");
-
-		const char* fov3rdPerson = ini.GetValue("3rdPersonView", "fov", "77.5");
-		const char* fov1stPerson = ini.GetValue("1stPersonView", "fov", "77.5");
-
-		const char* c3rdPersonLookLeft = ini.GetValue("3rdPersonView", "lookLeftAngle", "90.0");
-		const char* c3rdPersonLookRight = ini.GetValue("3rdPersonView", "lookRightAngle", "90.0");
-
-		const char* c1stPersonLookLeft = ini.GetValue("1stPersonView", "lookLeftAngle", "75.0");
-		const char* c1stPersonLookRight = ini.GetValue("1stPersonView", "lookRightAngle", "80.0");
-
-		const char* cReadFromMt = ini.GetValue("general", "GetInputFromGearsAsi", "1");
-
 		reloadKey =    strdup(ini.GetValue("keyMappings", "reloadSettingsKey", "F10"));
 		toggleModKey = strdup(ini.GetValue("keyMappings", "toggleModKey", "1"));
 		lookLeftKey =  strdup(ini.GetValue("keyMappings", "lookLeftKey", "B"));
 		lookRightKey = strdup(ini.GetValue("keyMappings", "lookRightKey", "N"));
 
-		distanceOffset = std::stof(dist3rdPerson);
+		distanceOffset = (float) ini.GetDoubleValue("3rdPersonView", "distanceOffset", 0.);
 
-		fov3P = std::stof(fov3rdPerson);
-		fov1P = std::stof(fov1stPerson);
+		fov3P = (float) ini.GetDoubleValue("3rdPersonView", "fov", 77.5);
+		fov1P = (float) ini.GetDoubleValue("1stPersonView", "fov", 77.5);
 
-		LookLeftAngle3p = std::stof(c3rdPersonLookLeft);
-		LookRightAngle3p = std::stof(c3rdPersonLookRight);
+		LookLeftAngle3p = (float) ini.GetDoubleValue("3rdPersonView", "lookLeftAngle", 90.0);
+		LookRightAngle3p = (float)ini.GetDoubleValue("3rdPersonView", "lookRightAngle", 90.0);
 
-		LookLeftAngle1p = std::stof(c1stPersonLookLeft);
-		LookRightAngle1p = std::stof(c1stPersonLookRight);
+		LookLeftAngle1p = (float)ini.GetDoubleValue("1stPersonView", "lookLeftAngle", 75.0);
+		LookRightAngle1p = (float)ini.GetDoubleValue("1stPersonView", "lookLeftAngle", 80.0);
 
-		readInputFromMt = std::stoi(cReadFromMt) > 0;
+		readInputFromMt = ini.GetLongValue("general", "GetInputFromGearsAsi", 1l) > 0;
+
+		deadzone = clamp01((float)ini.GetDoubleValue("input", "deadzone", 0.0));
+		gamepadAimEasing = ini.GetLongValue("input", "gamepadEasing", 1l) > 0;
+
+		gamepadSensibility = (float)ini.GetDoubleValue("input", "gamepadSensibility", 1.0);
+		mouseSensibility = (float)ini.GetDoubleValue("input", "mouseSensibility", 1.0);
 
 		if (notify) {
 			ShowNotification("CCVPlus: Settings reloaded");
@@ -1102,16 +1144,8 @@ void updateCameraDriverSeat() {
 			}
 			timerResetLook = 2.f;
 
-			float mx = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight)) * -5.f;
-			float my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * (LastInputMethodWasMouseAndKeyboard ? -5.f : 5.f);
-
-			if (!LastInputMethodWasMouseAndKeyboard())
-			{
-				mx *= 0.6f;
-				my *= 0.6f;
-			}
-
-			Vector3f vecLook = Vector3f(my, 0.f, mx);
+			Vector2f lookXY = readLookAroundInput();
+			Vector3f vecLook = Vector3f(lookXY.y(), 0.f, lookXY.x());
 
 			Quaternionf result = lookQuat * QuatEuler(vecLook);
 			Vector3f resultEuler = QuatToEuler(result);
@@ -1591,41 +1625,8 @@ void updateCam3pNfsAlgorithm()
 		}
 		timerResetLook = 2.f;
 
-		float mx = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight)) * -5.f;
-		float my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * (LastInputMethodWasMouseAndKeyboard ? -5.f : 5.f);
-
-		if (!LastInputMethodWasMouseAndKeyboard())  // if gamepad
-		{
-			mx *= 0.2f;
-			my *= 0.2f;
-
-			//showText(1, std::to_string(mx).c_str());
-			//showText(2, std::to_string(my).c_str());
-
-
-			// apply deadzone
-			float deadzone = 0.f;
-			Vector2f stickInput = Vector2f(mx, my);
-			if (stickInput.norm() < deadzone)
-				stickInput = Vector2f(0.f, 0.f);
-			else
-				stickInput = stickInput.normalized() * ((stickInput.norm() - deadzone) / (1.f - deadzone));
-
-			mx = stickInput.x();
-			my = stickInput.y();
-
-
-			// apply easing 
-			mx = easeInSineInput(mx);
-			my = easeInSineInput(my);
-
-
-			// Scale (sensibility)
-			mx *= 2.f;
-			my *= 2.f;
-		}
-
-		Vector3f vecLook = Vector3f(my, 0.f, mx);
+		Vector2f inputXY = readLookAroundInput();
+		Vector3f vecLook = Vector3f(inputXY.y(), 0.f, inputXY.x());
 
 		Quaternionf result = lookQuat * QuatEuler(vecLook);
 		Vector3f resultEuler = QuatToEuler(result);
