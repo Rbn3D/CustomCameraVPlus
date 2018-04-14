@@ -49,6 +49,10 @@ eVehicleClass vehClass;
 bool vehHasTowBone = false;
 bool vehHasTrailerBone = false;
 
+float pivotFrontOffset = 0.365f;
+float pivotFrontOffsetHighSpeed = 0.0f;
+float finalPivotFrontOffset = 0.f;
+
 Camera customCam = NULL;
 //float fov3P = 85.f;
 //float fov1P = 90.f;
@@ -308,6 +312,23 @@ float easeInCirq(float t) {
 
 float easeOutCubic(float t) {
 	return 1.f - easeInCubic(1.f - t);
+}
+
+float easeInSine(float t) {
+	return -1.f * cos(t / 1.f * (PI * 0.5f)) + 1.f;
+}
+
+// Range -1.f | 1.f
+float easeInSineInput(float axisInput)
+{
+	axisInput = clamp(axisInput, -1.f, 1.f);
+
+	float easeAbs = easeInSine(abs(axisInput));
+
+	if (axisInput < 0.f)
+		easeAbs *= -1.f;
+
+	return easeAbs;
 }
 
 inline void vadd_sse(const float *a, const float *b, float *r)
@@ -1486,13 +1507,16 @@ Vector3f V3Reflect(Vector3f vector, Vector3f normal)
 void updateCam3pNfsAlgorithm()
 {
 	Vector3f extraCamHeight = up * (0.14f + extraAngleCamHeight);
-	Vector3f posCenter = vehPos + (up * heightOffset3P) + (vehForwardVector * 0.365f);
+
+	finalPivotFrontOffset = lerp(pivotFrontOffset, pivotFrontOffsetHighSpeed, clamp01(vehVelocity.norm() * 0.01f));
+
+	Vector3f posCenter = vehPos + (up * heightOffset3P) + (vehForwardVector * finalPivotFrontOffset);
 
 	semiDelayedVehSpeed = lerp(semiDelayedVehSpeed, vehSpeed, clamp01(max(2.5f, vehSpeed) * getDeltaTime()));
 	delayedVehSpeed = lerp(delayedVehSpeed, semiDelayedVehSpeed, clamp01(max(0.5f, semiDelayedVehSpeed * 0.75f) * getDeltaTime()));
 
 	Quaternionf vehQuat = getEntityQuaternion(veh);
-	smoothQuat3P = slerp(smoothQuat3P, vehQuat, 3.f * getDeltaTime());
+	smoothQuat3P = slerp(smoothQuat3P, vehQuat, 3.f * ((vehVelocity.norm() * 0.01f) + 1.f) * getDeltaTime());
 
 	velocityQuat3P = lookRotation(smoothVelocity);
 	ultraSmoothVelocity3P = lookRotation(ultraSmoothVelocity);
@@ -1549,28 +1573,6 @@ void updateCam3pNfsAlgorithm()
 		lookHorizontalAngle = 180.f;
 	}
 
-	//if (!isAiming && hasInputThisFrame && AreSameFloat(lookHorizontalAngle, 0.f)) 
-	//{
-	//	//float leftNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftOnly);
-	//	float rightNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeft);
-	//	float upNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookDown);
-	//	//float downNormal = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookDownOnly);
-
-	//	float x = rightNormal;// - leftNormal;
-	//	float y = upNormal;// - downNormal;
-
-	//	float r = sqrt(x * x + y * y);
-	//	float maxComp = max(abs(x), abs(y));
-	//	if (maxComp > 0) {
-	//		x *= r / maxComp;
-	//		y *= r / maxComp;
-	//	}
-
-	//	float degress = atan2(y, x) * 180.f / PI;
-
-	//	lookHorizontalAngle = degress - 90.f;
-	//}
-
 	float leftRightRad = lookHorizontalAngle * DEG_TO_RAD;
 
 	float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
@@ -1578,11 +1580,6 @@ void updateCam3pNfsAlgorithm()
 	qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
 		* AngleAxisf(pitch, Vector3f::UnitY())
 		* AngleAxisf(yaw, Vector3f::UnitZ());
-
-	float btnLookingFactor = (abs(RelativeLookFactor));
-
-	if (lookBehind)
-		btnLookingFactor = 1.f;
 
 	Quaternionf finalQuat3P = slerp(smoothQuat3P * qLookLeftRight, velocityQuat3P, smoothIsInAir);
 
@@ -1605,15 +1602,27 @@ void updateCam3pNfsAlgorithm()
 			//showText(1, std::to_string(mx).c_str());
 			//showText(2, std::to_string(my).c_str());
 
-			float deadzone = 0.275f;
+
+			// apply deadzone
+			float deadzone = 0.f;
 			Vector2f stickInput = Vector2f(mx, my);
 			if (stickInput.norm() < deadzone)
 				stickInput = Vector2f(0.f, 0.f);
 			else
 				stickInput = stickInput.normalized() * ((stickInput.norm() - deadzone) / (1.f - deadzone));
 
-			mx = stickInput.x() * 2.f;
-			my = stickInput.y() * 2.f;
+			mx = stickInput.x();
+			my = stickInput.y();
+
+
+			// apply easing 
+			mx = easeInSineInput(mx);
+			my = easeInSineInput(my);
+
+
+			// Scale (sensibility)
+			mx *= 2.f;
+			my *= 2.f;
 		}
 
 		Vector3f vecLook = Vector3f(my, 0.f, mx);
@@ -1642,7 +1651,9 @@ void updateCam3pNfsAlgorithm()
 
 	float aimHeightIncrement = lerp(0.f, 0.22f, smoothIsAiming);
 
-	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * ((longitudeOffset3P) + 0.185f + airDistance)) + (up * aimHeightIncrement);
+	float pivotInfluenceLook = lerp(finalPivotFrontOffset, -0.2f, clamp01(abs(lookHorizontalAngle * 0.00277f))) * 1.f - smoothIsInAir;
+
+	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * (longitudeOffset3P + currentTowLongitudeIncrement + 0.185f + pivotInfluenceLook + airDistance - finalPivotFrontOffset)) + (up * aimHeightIncrement);
 	camPosSmooth += slerp(smoothQuat3P, velocityQuat3P, smoothIsInAir) * back * distIncFinal;
 
 	Vector3f camPosFinal = camPosSmooth;
@@ -1945,22 +1956,6 @@ void update()
 	if (IsKeyJustUp(str2key(toggleModKey))) {
 		customCamEnabled = !customCamEnabled;
 	}
-
-	/*
-	if (showDebug) {
-		showText(0.01f, 0.200f, 0.4, ("MouseLookCountDown: " + std::to_string(mouseMoveCountdown)).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.250f, 0.4, ("height: " + std::to_string(heightOffset3P)).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.300f, 0.4, ("long: " + std::to_string(longitudeOffset3P)).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.350f, 0.4, ("currentRotSpeed3P: " + std::to_string(currentRotSpeed3P)).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.400f, 0.4, ("vehAccel_X100: " + std::to_string(vehAcceleration * 100.f)).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.450f, 0.4, ("vehUpright: " + std::to_string(ENTITY::GET_ENTITY_UPRIGHT_VALUE(veh))).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.500f, 0.4, ("vehRotX: " + std::to_string(vehRot.x())).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.550f, 0.4, ("vehRotY: " + std::to_string(vehRot.y())).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.600f, 0.4, ("vehRotZ: " + std::to_string(vehRot.z())).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.650f, 0.4, ("viewLock: " + std::to_string(viewLock)).c_str(), 4, solidWhite, true);
-		showText(0.01f, 0.700f, 0.4, ("vehClass: " + std::to_string(vehClass)).c_str(), 4, solidWhite, true);
-	}
-	*/
 
 	Player player = PLAYER::PLAYER_ID();
 	playerPed = PLAYER::PLAYER_PED_ID();
