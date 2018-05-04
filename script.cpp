@@ -17,8 +17,6 @@
 
 using namespace NativeMenu;
 
-HWND hWnd;
-
 float smoothIsMouseLooking = 0.f;
 float viewLock = 0.f;
 float smoothViewLock = 0.f;
@@ -49,8 +47,10 @@ eVehicleClass vehClass;
 bool vehHasTowBone = false;
 bool vehHasTrailerBone = false;
 
-float pivotFrontOffset = 0.365f;
-float pivotFrontOffsetHighSpeed = 0.0f;
+//float pivotFrontOffset = 0.365f;
+//float pivotFrontOffsetHighSpeed = 0.0f;
+float pivotFrontOffset = 0.20f;
+float pivotFrontOffsetHighSpeed = -0.05f;
 float finalPivotFrontOffset = 0.f;
 
 Camera customCam = NULL;
@@ -167,7 +167,7 @@ float LookRightAngle3p = 90.0f;
 float semiDelayedVehSpeed = 0.f;
 float delayedVehSpeed = 0.f;
 
-Vector3f prevCamPos;
+Vector3f prevCamPos = Vector3f();
 
 bool isLookingBack = false;
 
@@ -577,7 +577,7 @@ void ReadSettings(bool notify)
 		distanceOffset = (float) ini.GetDoubleValue("3rdPersonView", "distanceOffset", 0.);
 
 		fov3P = (float) ini.GetDoubleValue("3rdPersonView", "fov", 77.5);
-		fov1P = (float) ini.GetDoubleValue("1stPersonView", "fov", 77.5);
+		fov1P = (float) ini.GetDoubleValue("1stPersonView", "fov", 75.0);
 
 		LookLeftAngle3p = (float) ini.GetDoubleValue("3rdPersonView", "lookLeftAngle", 90.0);
 		LookRightAngle3p = (float)ini.GetDoubleValue("3rdPersonView", "lookRightAngle", 90.0);
@@ -659,8 +659,6 @@ void firstInit()
 	UINT_PTR address = FindPattern("\x48\x8B\xC7\xF3\x0F\x10\x0D", "xxxxxxx") - 0x1D;
 	address = address + *reinterpret_cast<int*>(address) + 4;
 	gamePlayCameraAddr = *reinterpret_cast<UINT_PTR*>(*reinterpret_cast<int*>(address + 3) + address + 7);
-
-	hWnd = FindWindow(NULL, "Grand Theft Auto V");
 
 	enum Button
 	{
@@ -869,7 +867,7 @@ Matrix3f matrixLookAt(Vector3f& dir, Vector3f& up)
 Quaternionf lookRotation(Vector3f dir) 
 {
 	// Fix for gta coord system
-	//Roll pitch and yaw in Radians (-90.0, 0.0, 0.0)
+	// Roll pitch and yaw in Radians (-90.0, 0.0, 0.0)
 	float roll = -1.5707963267948966f, pitch = 0.f, yaw = 0.f;
 	Quaternionf compensation;
 	compensation = AngleAxisf(roll, Vector3f::UnitX())
@@ -896,6 +894,14 @@ Quaternionf lookRotation(Vector3f dir, Vector3f upVector)
 	Quaternionf ret = Quaternionf(lookM);
 
 	return ret * compensation;
+}
+
+Quaternionf lookRotationEx(Vector3f dir, Vector3f upVector)
+{
+	Matrix3f lookM = matrixLookAt(dir, upVector);
+	Quaternionf ret = Quaternionf(lookM);
+
+	return ret;
 }
 
 Vector3f lookRotEuler(Vector3f dir, Vector3f upVector) {
@@ -1013,7 +1019,7 @@ void updateVehicleVars()
 	if ((ENTITY::IS_ENTITY_IN_AIR(veh) || (ENTITY::GET_ENTITY_UPRIGHT_VALUE(veh) < 0.6f)) && smoothIsInAir < 0.001f)
 	{
 		smoothVelocity = getCameraForwardVector(customCam);
-		velocityQuat3P = lookRotation(smoothVelocity);
+		//velocityQuat3P = lookRotation(smoothVelocity);
 	}
 
 	smoothIsInAir = lerp(smoothIsInAir, (ENTITY::IS_ENTITY_IN_AIR(veh) || ENTITY::IS_ENTITY_UPSIDEDOWN(veh)) ? 1.f : 0.f, 2.f * getDeltaTime());
@@ -1552,27 +1558,31 @@ void updateCam3pNfsAlgorithm()
 	Quaternionf vehQuat = getEntityQuaternion(veh);
 	smoothQuat3P = slerp(smoothQuat3P, vehQuat, 3.f * ((vehVelocity.norm() * 0.01f) + 1.f) * getDeltaTime());
 
-	velocityQuat3P = lookRotation(smoothVelocity);
-	ultraSmoothVelocity3P = lookRotation(ultraSmoothVelocity);
+	Vector3f targetPos = vehPos + (up * heightOffset3P) + extraCamHeight + (currentTowHeightIncrement * up) + (vehForwardVector * finalPivotFrontOffset);
+
+	Vector3f velocityDir = targetPos - prevCamPos;
+
+	velocityQuat3P = lookRotation(velocityDir, up);
+	//ultraSmoothVelocity3P = slerp(ultraSmoothVelocity3P, velocityQuat3P, 200.f * getDeltaTime());
 
 	//float vehPitch = QuatToEuler(velocityQuat3P).x();
 
-	float forwardness = vehForwardVector.dot(vehVelocity);
+	//float forwardness = vehForwardVector.dot(vehVelocity);
 
-	if (/*isBike && */forwardness >= 0.f && vehSpeed > 1.f)
-	{
-		Vector3f VquatVel = QuatToEuler(ultraSmoothVelocity3P);
-		Vector3f sm3p;
+	//if (/*isBike && */forwardness >= 0.2f && vehSpeed > 3.f)
+	//{
+	//	Vector3f VquatVel = QuatToEuler(ultraSmoothVelocity3P);
+	//	Vector3f sm3p;
 
-		//if (forwardness >= 0.f)
-			sm3p = QuatToEuler(smoothQuat3P);
-		//else
-		//	sm3p = QuatToEuler(inverseSmoothQuat3P);
+	//	//if (forwardness >= 0.f)
+	//		sm3p = QuatToEuler(smoothQuat3P);
+	//	//else
+	//	//	sm3p = QuatToEuler(inverseSmoothQuat3P);
 
-		VquatVel[2] = sm3p[2];
+	//	VquatVel[2] = sm3p[2];
 
-		smoothQuat3P = QuatEuler(VquatVel);
-	}
+	//	smoothQuat3P = QuatEuler(VquatVel);
+	//}
 
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45f * getDeltaTime());
 	currentTowLongitudeIncrement = lerp(currentTowLongitudeIncrement, towLongitudeIncrement, 1.75f * getDeltaTime());
@@ -1589,6 +1599,16 @@ void updateCam3pNfsAlgorithm()
 	distIncFinal += deccelerationSmooth * (1.f - smoothIsInAir);
 
 	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * (lerp(0.6f, 1.2f, smoothIsInAirNfs)));
+
+	/*
+	float heightInc = smoothStep(0.f, 0.30f, clamp01(0.0219f * max(semiDelayedVehSpeed - 6.f, 0.f)));
+	//distIncFinal -= lerp(0.f, 0.10f, clamp01((heightInc - 0.15f) * 5.5f));
+
+	heightInc = min(heightInc, 0.2f);
+	*/
+
+	//showText(0, std::to_string(heightInc).c_str());
+	//showText(1, std::to_string(semiDelayedVehSpeed).c_str());
 
 	bool lookBehind = false;
 	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || isLookingBack)
@@ -1615,7 +1635,7 @@ void updateCam3pNfsAlgorithm()
 		* AngleAxisf(pitch, Vector3f::UnitY())
 		* AngleAxisf(yaw, Vector3f::UnitZ());
 
-	Quaternionf finalQuat3P = slerp(smoothQuat3P * qLookLeftRight, velocityQuat3P, smoothIsInAir);
+	Quaternionf finalQuat3P = velocityQuat3P;
 
 	if (isAiming || hasInputThisFrame)
 	{
@@ -1654,10 +1674,13 @@ void updateCam3pNfsAlgorithm()
 
 	float pivotInfluenceLook = lerp(finalPivotFrontOffset, -0.2f, clamp01(abs(lookHorizontalAngle * 0.00277f))) * 1.f - smoothIsInAir;
 
-	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * (longitudeOffset3P + currentTowLongitudeIncrement + 0.185f + pivotInfluenceLook + airDistance - finalPivotFrontOffset)) + (up * aimHeightIncrement);
-	camPosSmooth += slerp(smoothQuat3P, velocityQuat3P, smoothIsInAir) * back * distIncFinal;
+	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * (longitudeOffset3P + currentTowLongitudeIncrement + 0.185f + pivotInfluenceLook + airDistance - finalPivotFrontOffset)) + (up * (aimHeightIncrement /* + heightInc */));
+
+	camPosSmooth += velocityQuat3P * back * distIncFinal;
 
 	Vector3f camPosFinal = camPosSmooth;
+
+	prevCamPos = camPosFinal;
 
 	setCamPos(customCam, camPosFinal);
 
@@ -1679,7 +1702,7 @@ void updateCam3pNfsAlgorithm()
 
 	rotEuler[1] = 0.f;
 
-	CAM::SET_CAM_ROT(customCam, rotEuler.x(), rotEuler.y(), rotEuler.z(), 2);
+	CAM::SET_CAM_ROT(customCam, rotEuler.x() /*- heightInc */, rotEuler.y(), rotEuler.z(), 2);
 }
 
 void updateCameraSmooth3P() {
