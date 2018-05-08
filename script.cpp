@@ -1379,15 +1379,15 @@ void updateCam3pNfsAlgorithm()
 	Quaternionf vehQuat = getEntityQuaternion(veh);
 	smoothQuat3P = slerp(smoothQuat3P, vehQuat, 3.f * ((vehVelocity.norm() * 0.01f) + 1.f) * getDeltaTime());
 
-	float hightSpeedMin = 5.5f;
-	float highSpeedMax = 22.5f;
+	float hightSpeedMin = 15.f;
+	float highSpeedMax = 45.f;
 
-	float highSpeedFactor = unlerp(hightSpeedMin, highSpeedMax, clamp(vehSpeed, hightSpeedMin, highSpeedMax)) * 0.6f;
+	float highSpeedFactor = unlerp(hightSpeedMin, highSpeedMax, clamp(vehSpeed, hightSpeedMin, highSpeedMax)) * 0.020f;
 	showText(1, std::to_string(highSpeedFactor).c_str());
 	showText(2, std::to_string(vehSpeed).c_str());
 
 	Vector3f targetPos = vehPos + (up * heightOffset3P) + extraCamHeight + (currentTowHeightIncrement * up) + (vehForwardVector * finalPivotFrontOffset);
-	targetPos += vehVelocity * (highSpeedFactor * smoothIsInAir);
+	targetPos += vehVelocity * highSpeedFactor * (1.f - smoothIsInAir) * ((vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 250.f);
 
 	Vector3f velocityDir = targetPos - prevCamPos;
 
@@ -1406,13 +1406,7 @@ void updateCam3pNfsAlgorithm()
 	if (distIncFinal < 0.f)
 		distIncFinal * max(0.f, 1.0f - (smoothStep(0.f, 1.f, unlerp(0.f, -0.8f, distIncFinal)) * 5.f) );
 	
-	//float distInc = clamp(semiDelayedVehSpeed * 0.025f * (vehVelocity.normalized().dot(vehForwardVector) * clamp01(vehSpeed + 0.05f)), -4.f, 4.f);
-	//float discIncAir = clamp(semiDelayedVehSpeed * 0.025f * clamp01(vehSpeed + 0.05f), -4.f, 4.f);
-
-	//float distIncFinal = lerp(distInc, discIncAir, smoothIsInAir);
-
-	//distIncFinal += deccelerationSmooth * (1.f - smoothIsInAir);
-	
+	distIncFinal *= 0.7f;
 
 	showText(0, std::to_string(distIncFinal).c_str());
 
@@ -1507,7 +1501,7 @@ void updateCam3pNfsAlgorithm()
 
 	float pivotInfluenceLook = lerp(finalPivotFrontOffset, -0.2f, clamp01(abs(lookHorizontalAngle * 0.00277f))) * 1.f - smoothIsInAir;
 
-	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * (longitudeOffset3P + currentTowLongitudeIncrement + 0.185f + pivotInfluenceLook + airDistance - finalPivotFrontOffset)) + (up * (aimHeightIncrement /* + heightInc */));
+	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * (longitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + airDistance - finalPivotFrontOffset)) + (up * (aimHeightIncrement /* + heightInc */));
 
 	camPosSmooth += dirQuat3P * back * distIncFinal;
 
