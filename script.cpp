@@ -1054,7 +1054,7 @@ void setupCurrentCamera() {
 		dirQuat3P = lookQuat;
 		smoothQuat3P = lookQuat;
 
-		//smoothQuat3P = getEntityQuaternion(veh);
+		prevCamPos = (vehPos + (up * heightOffset3P)) + (up * (0.14f + extraAngleCamHeight)) + ((lookQuat) * back * (longitudeOffset3P + currentTowLongitudeIncrement));
 	}
 
 	CAM::SET_FOLLOW_VEHICLE_CAM_VIEW_MODE(1);
