@@ -1239,7 +1239,7 @@ void ProccessLookLeftRightOrBackInput()
 	if (evalLeft && !evalRight) {
 		RelativeLookFactor += rotSpeed * getDeltaTime();
 	}
-	else if (evalRight) {
+	else if (evalRight || isLookingBack) {
 		RelativeLookFactor -= rotSpeed * getDeltaTime();
 	}
 	else
@@ -1427,6 +1427,7 @@ void updateCam3pNfsAlgorithm()
 		lookBehind = true;
 
 	float lookHorizontalAngle = 0.f;
+
 	if (!lookBehind) {
 		lookHorizontalAngle = RelativeLookFactor < 0 ?
 			lerp(0.f, -LookLeftAngle3p, -RelativeLookFactor)
@@ -1447,21 +1448,6 @@ void updateCam3pNfsAlgorithm()
 		* AngleAxisf(pitch, Vector3f::UnitY())
 		* AngleAxisf(yaw, Vector3f::UnitZ());
 
-
-	//float speedMinVelo = 25.f;
-	//float speedMaxVelo = 30.f;
-	//float accelerationMinVelo = 0.4f;
-	//float accelInputMinVelo = 0.6f;
-
-	//float speedFactor = clamp01(unlerp(speedMinVelo, speedMaxVelo, vehSpeed));
-	//float accelerationFactor = clamp01(unlerp(accelerationMinVelo, 1.f, vehAcceleration * 1000.f));
-	//float accelInputFactor = clamp01(unlerp(accelInputMinVelo, 1.f, CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlVehicleAccelerate)));
-
-	//float finalVeloFactor = speedFactor * accelerationFactor * accelInputFactor;
-
-	//showText(0, std::to_string(finalVeloFactor).c_str());
-
-	//Quaternionf finalQuat3P = slerp(dirQuat3P, veloQuat3P, finalVeloFactor);
 	Quaternionf finalQuat3P = dirQuat3P;
 
 	if (isAiming || hasInputThisFrame)
@@ -1483,10 +1469,16 @@ void updateCam3pNfsAlgorithm()
 		lookQuat = QuatEuler(Vector3f(rx, 0.f, resultEuler[2]));
 	}
 
+	if (!AreSameFloat(0.f, lookHorizontalAngle))
+	{
+		lookQuat = smoothQuat3P * qLookLeftRight;
+	}
+
+	float factorLook = clamp01(timerResetLook + abs(RelativeLookFactor) + (lookBehind ? 1.f : 0.f));
+
 	timerResetLook = clamp(timerResetLook - getDeltaTime(), 0.f, 2.f);
 
-	finalQuat3P = slerp(finalQuat3P, lookQuat, clamp01(timerResetLook));
-	//finalQuat3P = lookQuat;
+	finalQuat3P = slerp(finalQuat3P, lookQuat, factorLook);
 
 	if (smoothIsAiming > 0.00001f) {
 		float currentFov = lerp(fov3P, fov3PAiming, smoothIsAiming);
@@ -1501,7 +1493,7 @@ void updateCam3pNfsAlgorithm()
 
 	float pivotInfluenceLook = lerp(finalPivotFrontOffset, -0.2f, clamp01(abs(lookHorizontalAngle * 0.00277f))) * 1.f - smoothIsInAir;
 
-	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + (finalQuat3P * back * (longitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + airDistance - finalPivotFrontOffset)) + (up * (aimHeightIncrement /* + heightInc */));
+	Vector3f camPosSmooth = posCenter + extraCamHeight + V3CurrentTowHeightIncrement + ((finalQuat3P) * back * (longitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + airDistance - finalPivotFrontOffset)) + (up * (aimHeightIncrement /* + heightInc */));
 
 	camPosSmooth += dirQuat3P * back * distIncFinal;
 
