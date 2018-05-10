@@ -1383,11 +1383,11 @@ void updateCam3pNfsAlgorithm()
 	float highSpeedMax = 45.f;
 
 	float highSpeedFactor = unlerp(hightSpeedMin, highSpeedMax, clamp(vehSpeed, hightSpeedMin, highSpeedMax)) * 0.020f;
-	showText(1, std::to_string(highSpeedFactor).c_str());
-	showText(2, std::to_string(vehSpeed).c_str());
 
 	Vector3f targetPos = vehPos + (up * heightOffset3P) + extraCamHeight + (currentTowHeightIncrement * up) + (vehForwardVector * finalPivotFrontOffset);
-	targetPos += vehVelocity * highSpeedFactor * (1.f - smoothIsInAir) * ((vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 250.f);
+	
+	
+	targetPos += vehVelocity * highSpeedFactor * (1.f - smoothIsInAir) * max(((vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 250.f), 0.f);
 
 	Vector3f velocityDir = targetPos - prevCamPos;
 
@@ -1407,8 +1407,6 @@ void updateCam3pNfsAlgorithm()
 		distIncFinal * max(0.f, 1.0f - (smoothStep(0.f, 1.f, unlerp(0.f, -0.8f, distIncFinal)) * 5.f) );
 	
 	distIncFinal *= 0.7f;
-
-	showText(0, std::to_string(distIncFinal).c_str());
 
 	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * (lerp(0.6f, 1.2f, smoothIsInAirNfs)));
 
