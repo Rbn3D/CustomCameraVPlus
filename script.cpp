@@ -1399,7 +1399,7 @@ void updateCam3pNfsAlgorithm()
 	Vector3f targetPos = vehPos + (up * heightOffset3P) + ((currentTowHeightIncrement + heigthOffset) * up) + (vehForwardVector * finalPivotFrontOffset);
 	targetPos += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.5f * (clamp01(vehSpeed * 0.7f)))*/;
 	
-	targetPos += smoothVelocity * highSpeedFactor * (1.f - smoothIsInAir) * max(((vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 250.f), 0.f);
+	targetPos += smoothVelocity * highSpeedFactor * (1.f - smoothIsInAir) * max(((vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 250.f), 0.f) * 0.45f;
 
 	Vector3f velocityDir = targetPos - prevCamPos;
 
