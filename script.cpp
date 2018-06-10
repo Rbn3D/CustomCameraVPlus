@@ -188,7 +188,8 @@ float mouseSensibility = 1.f;
 float RelativeLookFactor = 0.f;
 
 bool readInputFromMt = true;
-float smoothAccelDist = 0.f;
+float vehDelayedAccel = 0.f;
+float vehDelayedAccel2 = 0.f;
 
 char * reloadKey = "F10";
 char * toggleModKey = "1";
@@ -1371,13 +1372,17 @@ void updateCam3pNfsAlgorithm()
 
 	finalPivotFrontOffset = lerp(pivotFrontOffset, pivotFrontOffsetHighSpeed, clamp01(vehVelocity.norm() * 0.01f));
 
-	smoothAccelDist = lerp(smoothAccelDist, ((vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 1700.f), 0.75f * getDeltaTime());
-	smoothAccelDist = clamp(smoothAccelDist, -0.8f, 1.7f);
+	//smoothAccelDist = lerp(smoothAccelDist, ((vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 1700.f), 0.75f * getDeltaTime());
+	//smoothAccelDist = clamp(smoothAccelDist, -0.8f, 1.7f);
 
-	float distIncFinal = smoothAccelDist;
+	float vehDirectAccel = (vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 1700.f;
+	vehDelayedAccel = lerp(vehDelayedAccel, vehDirectAccel, 1.75f * getDeltaTime());
+	vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.95f * getDeltaTime());
 
-	if (distIncFinal < 0.f)
-		distIncFinal * max(0.f, 1.0f - (smoothStep(0.f, 1.f, unlerp(0.f, -0.8f, distIncFinal)) * 5.f));
+	float distIncFinal = (vehDelayedAccel - vehDelayedAccel2) + max(0.f, vehSpeed * 0.0125f);
+
+	//if (distIncFinal < 0.f)
+	//	distIncFinal * max(0.f, 1.0f - (smoothStep(0.f, 1.f, unlerp(0.f, -0.8f, distIncFinal)) * 5.f));
 
 	distIncFinal *= 0.7f;
 
@@ -1482,9 +1487,9 @@ void updateCam3pNfsAlgorithm()
 
 	float pivotInfluenceLook = lerp(finalPivotFrontOffset, -0.2f, clamp01(abs(lookHorizontalAngle * 0.00277f))) * 1.f - smoothIsInAir;
 
-	Vector3f camPosSmooth = posCenter + V3CurrentTowHeightIncrement + ((finalQuat3P) * back * (longitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + airDistance - finalPivotFrontOffset)) + (up * (aimHeightIncrement + heigthOffset/* + heightInc */));
+	Vector3f camPosSmooth = posCenter + V3CurrentTowHeightIncrement + ((finalQuat3P) * back * (longitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + (airDistance - finalPivotFrontOffset) + distIncFinal )) + (up * (aimHeightIncrement + heigthOffset/* + heightInc */));
 
-	camPosSmooth += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.25f * clamp01(vehSpeed * 0.7f)) */;
+	//camPosSmooth += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.25f * clamp01(vehSpeed * 0.7f)) */;
 
 	Vector3f camPosFinal = camPosSmooth;
 
