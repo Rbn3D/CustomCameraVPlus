@@ -1,6 +1,10 @@
 1.3
 
-* Reworked dynamic camera distance based on acceleration and speed. Fixes some bugs and provides better visual feedback.
+* Reworked dynamic camera distance based on acceleration and speed (third person camera). Fixes some bugs and provides better visual feedback.
+* Fixed 3rd person camera getting too close to the vehicle at high speeds.
+* New option "InertiaAffectsPitch" on 3rd person camera, wich makes the camera look down when the car loses acceleration quickly or brakes (Diabled by default)
+* New option "InertiaEffects" on 1st person camera, wich makes the camera move forward / back based on vehicle acceleration (Enabled by default)
+* Adjusted 1st person camera distance to be a little more distant
 
 1.2 
 

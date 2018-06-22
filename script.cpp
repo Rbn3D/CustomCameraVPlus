@@ -165,6 +165,10 @@ float LookRightAngle1p = 80.0f;
 float LookLeftAngle3p = 90.0f;
 float LookRightAngle3p = 90.0f;
 
+bool InertiaAffectsPitch3p = false;
+
+bool InertiaEffects1p = true;
+
 float semiDelayedVehSpeed = 0.f;
 float delayedVehSpeed = 0.f;
 
@@ -190,6 +194,7 @@ float RelativeLookFactor = 0.f;
 bool readInputFromMt = true;
 float vehDelayedAccel = 0.f;
 float vehDelayedAccel2 = 0.f;
+float smoothIsGoingForwardInc = 0.f;
 
 char * reloadKey = "F10";
 char * toggleModKey = "1";
@@ -323,6 +328,10 @@ float easeOutCubic(float t) {
 
 float easeInSine(float t) {
 	return -1.f * cos(t / 1.f * (PI * 0.5f)) + 1.f;
+}
+
+float easeOutSine(float t) {
+	return sin(t / 1 * (PI * 0.5));
 }
 
 // Range -1.f | 1.f
@@ -583,6 +592,10 @@ void ReadSettings(bool notify)
 
 		LookLeftAngle3p = (float) ini.GetDoubleValue("3rdPersonView", "lookLeftAngle", 90.0);
 		LookRightAngle3p = (float)ini.GetDoubleValue("3rdPersonView", "lookRightAngle", 90.0);
+		
+		InertiaAffectsPitch3p = ini.GetLongValue("3rdPersonView", "InertiaAffectsPitch", 0) > 0;
+
+		InertiaEffects1p = ini.GetLongValue("1stPersonView", "InertiaEffects", 1) > 0;
 
 		LookLeftAngle1p = (float)ini.GetDoubleValue("1stPersonView", "lookLeftAngle", 75.0);
 		LookRightAngle1p = (float)ini.GetDoubleValue("1stPersonView", "lookLeftAngle", 80.0);
@@ -946,21 +959,21 @@ void updateVehicleProperties()
 	if (vehClass == eVehicleClass::VehicleClassCoupes || vehClass == eVehicleClass::VehicleClassSports || vehClass == eVehicleClass::VehicleClassSportsClassics || vehClass == eVehicleClass::VehicleClassMuscle)
 	{
 		// sports - coupes - muscles
-		playerHeadAltitude = 0.65f;
-		playerHeadDistance = -0.53f;
+		playerHeadAltitude = 0.675f;
+		playerHeadDistance = -0.56f;
 	}
 	else if (vehClass == eVehicleClass::VehicleClassSuper)
 	{
 		// super sport
-		playerHeadAltitude = 0.615f;
-		playerHeadDistance = -0.58f;
+		playerHeadAltitude = 0.645f;
+		playerHeadDistance = -0.61f;
 
 	}
 	else
 	{
 		// anything else
-		playerHeadAltitude = 0.67f;
-		playerHeadDistance = -0.53f;
+		playerHeadAltitude = 0.695f;
+		playerHeadDistance = -0.56f;
 	}
 
 	skelPos += vehUpVector * playerHeadAltitude;
@@ -1114,9 +1127,29 @@ void updateCameraDriverSeat() {
 		UI::SHOW_HUD_COMPONENT_THIS_FRAME(eHudComponent::HudComponentReticle);
 	}
 
-	CAM::SET_CAM_COORD(customCam, camPos.x(), camPos.y(), camPos.z());
+	float distIncFinal = 0.f;
+
+	if (InertiaEffects1p) {
+		float accelScale = VEHICLE::GET_VEHICLE_ACCELERATION(veh);
+
+		float vehDirectAccel = ((double)(vehAcceleration * accelScale)) * 1700.0;
+		vehDelayedAccel = lerp(vehDelayedAccel, vehDirectAccel, 1.725f * getDeltaTime());
+		vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.765f * getDeltaTime());
+
+		if (vehSpeed <= 0.02f && vehDelayedAccel > vehDelayedAccel2)
+			vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDelayedAccel, 8.f * getDeltaTime());
+
+		float accelThreshold = (vehDelayedAccel - vehDelayedAccel2);
+
+		distIncFinal = accelThreshold + max(0.f, vehSpeed * 0.01295f) - 0.3f;
+
+		distIncFinal *= 0.175f;
+		distIncFinal = clamp(distIncFinal, -0.1f, 0.1f);
+	}
 
 	float btnLookingFactor = abs(RelativeLookFactor);
+
+	Quaternionf finalQ;
 
 	if (isBike) {
 		CAM::STOP_CAM_POINTING(customCam);
@@ -1140,7 +1173,7 @@ void updateCameraDriverSeat() {
 			* AngleAxisf(pitch, Vector3f::UnitY())
 			* AngleAxisf(yaw, Vector3f::UnitZ());
 
-		Quaternionf finalQ = smoothQuatSeat * qLookLeftRight;
+		finalQ = smoothQuatSeat * qLookLeftRight;
 
 		if (isAiming || hasInputThisFrame)
 		{
@@ -1189,7 +1222,7 @@ void updateCameraDriverSeat() {
 				* AngleAxisf(pitch, Vector3f::UnitY())
 				* AngleAxisf(yaw, Vector3f::UnitZ());
 
-			Quaternionf finalQ = smoothQuatSeat * qLookLeftRight;
+			finalQ = smoothQuatSeat * qLookLeftRight;
 
 			if (isAiming || hasInputThisFrame)
 			{
@@ -1224,6 +1257,10 @@ void updateCameraDriverSeat() {
 
 			SET_CAM_QUATERNION(customCam, finalQ);
 	}
+
+	camPos = camPos + smoothQuatSeat * back * distIncFinal;
+
+	CAM::SET_CAM_COORD(customCam, camPos.x(), camPos.y(), camPos.z());
 
 	CAM::RENDER_SCRIPT_CAMS(true, false, 3000, 1, 0);
 }
@@ -1375,16 +1412,31 @@ void updateCam3pNfsAlgorithm()
 	//smoothAccelDist = lerp(smoothAccelDist, ((vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 1700.f), 0.75f * getDeltaTime());
 	//smoothAccelDist = clamp(smoothAccelDist, -0.8f, 1.7f);
 
-	float vehDirectAccel = (vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 1700.f;
-	vehDelayedAccel = lerp(vehDelayedAccel, vehDirectAccel, 1.75f * getDeltaTime());
-	vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.95f * getDeltaTime());
+	float accelScale = VEHICLE::GET_VEHICLE_ACCELERATION(veh);
 
-	float distIncFinal = (vehDelayedAccel - vehDelayedAccel2) + max(0.f, vehSpeed * 0.0125f);
+	float vehDirectAccel = ((double)(vehAcceleration * accelScale)) * 1700.0;
+	vehDelayedAccel = lerp(vehDelayedAccel, vehDirectAccel, 1.735f * getDeltaTime());
+	vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.625f * getDeltaTime());
 
-	//if (distIncFinal < 0.f)
-	//	distIncFinal * max(0.f, 1.0f - (smoothStep(0.f, 1.f, unlerp(0.f, -0.8f, distIncFinal)) * 5.f));
+	float isGoingForwardInc = clamp( ((vehSpeed - 1.f) * 0.6f) * accelScale, 0.f, 1.2f) * 0.425f;
+	smoothIsGoingForwardInc = lerp(smoothIsGoingForwardInc, isGoingForwardInc, 0.8f * getDeltaTime());
+
+	float accelThreshold = (vehDelayedAccel - vehDelayedAccel2);
+
+	float distIncFinal = clamp(accelThreshold, -1.7f, 1.5f) + max(0.f, vehSpeed * 0.01295f) - 0.3f + smoothIsGoingForwardInc;
 
 	distIncFinal *= 0.7f;
+
+	float lookDownThreshold = 0.f;
+	
+	if (InertiaAffectsPitch3p) {
+
+		lookDownThreshold = clamp(accelThreshold + 0.2f, -1.f, -0.0f);
+
+		//float aux = -lookDownThreshold;
+		//lookDownThreshold = -smoothStep(0.f, 1.f, aux);
+	}
+
 
 	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * (lerp(0.6f, 1.2f, smoothIsInAirNfs)));
 
@@ -1515,7 +1567,7 @@ void updateCam3pNfsAlgorithm()
 
 	rotEuler[1] = 0.f;
 
-	CAM::SET_CAM_ROT(customCam, rotEuler.x() /*- heightInc */, rotEuler.y(), rotEuler.z(), 2);
+	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f), rotEuler.y(), rotEuler.z(), 2);
 }
 
 void updateCameraSmooth3P() {
