@@ -1,3 +1,15 @@
+1.3
+
+* Reworked dynamic camera distance based on acceleration and speed (third person camera). Fixes some bugs and provides better visual feedback.
+* Fixed 3rd person camera getting too close to the vehicle at high speeds.
+* New option "InertiaAffectsPitch" on 3rd person camera, wich makes the camera look down when the car loses acceleration quickly or brakes (Diabled by default)
+* New option "InertiaEffects" on 1st person camera, wich makes the camera move forward / back based on vehicle acceleration (Enabled by default)
+* Adjusted 1st person camera distance to be a little more distant
+
+1.2 
+
+*  New 3rd person camera system, more like the built-in GTAV camera, so when you are at low speed camera angle it's unlocked, with no autocenter, but as you get some speed it chases you more actively, so you can clearly see where the car is going (Unlike vanilla cam).
+*  New 3rd person is also better for drifting, because it lets you see the rotation of the car when it slides (the cam behaviour it's not related to vehicle rotation anymore, but it's velocity, speed, previous cam position and acceleration)
 
 1.1
 
