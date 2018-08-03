@@ -61,6 +61,7 @@ float fov1P = 75.F;
 float fov1PAiming = 60.f;
 float fov3PAiming = 60.f;
 float distanceOffset = 0.f;
+float cameraAngle3p = 3.5f;
 const float PI = 3.1415926535897932f;
 int lastVehHash = -1;
 bool isBike = false;
@@ -69,6 +70,8 @@ bool isInVehicle = false;
 
 float longitudeOffset3P = 0.f;
 float heightOffset3P = 0.f;
+
+float heightIcrementCalc = 0.f;
 
 float rotationSpeed3P = 4.75f;
 
@@ -585,7 +588,8 @@ void ReadSettings(bool notify)
 		lookLeftKey =  strdup(ini.GetValue("keyMappings", "lookLeftKey", "B"));
 		lookRightKey = strdup(ini.GetValue("keyMappings", "lookRightKey", "N"));
 
-		distanceOffset = (float) ini.GetDoubleValue("3rdPersonView", "distanceOffset", 0.);
+		distanceOffset = (float) ini.GetDoubleValue("3rdPersonView", "distanceOffset", 0.0);
+		cameraAngle3p = clamp((float)ini.GetDoubleValue("3rdPersonView", "cameraAngle", 3.5), 0.f, 20.f);
 
 		fov3P = (float) ini.GetDoubleValue("3rdPersonView", "fov", 77.5);
 		fov1P = (float) ini.GetDoubleValue("1stPersonView", "fov", 75.0);
@@ -1015,7 +1019,7 @@ void updateVehicleProperties()
 
 	longitudeOffset3P += 1.45f + distanceOffset;
 
-	//ShowNotification(std::to_string(longitudeOffset3P).c_str());
+	heightIcrementCalc = longitudeOffset3P * tan(cameraAngle3p * PI / 180.0);
 
 	vehHasTowBone = vehHasBone("tow_arm");
 	vehHasTrailerBone = vehHasBone("attach_female");
@@ -1402,7 +1406,7 @@ Vector3f V3Reflect(Vector3f vector, Vector3f normal)
 
 void updateCam3pNfsAlgorithm()
 {
-	float heigthOffset = 0.15f;
+	float heigthOffset = 0.15f + heightIcrementCalc;
 
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45f * getDeltaTime());
 	currentTowLongitudeIncrement = lerp(currentTowLongitudeIncrement, towLongitudeIncrement, 1.75f * getDeltaTime());
@@ -1567,7 +1571,7 @@ void updateCam3pNfsAlgorithm()
 
 	rotEuler[1] = 0.f;
 
-	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f), rotEuler.y(), rotEuler.z(), 2);
+	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f) - cameraAngle3p, rotEuler.y(), rotEuler.z(), 2);
 }
 
 void updateCameraSmooth3P() {
