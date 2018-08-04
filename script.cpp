@@ -60,7 +60,8 @@ float fov3P = 77.5f;
 float fov1P = 75.F;
 float fov1PAiming = 60.f;
 float fov3PAiming = 60.f;
-float distanceOffset = 0.f;
+float distanceOffset3p = 0.f;
+float heightOffset3p = 0.f;
 float cameraAngle3p = 3.5f;
 const float PI = 3.1415926535897932f;
 int lastVehHash = -1;
@@ -68,8 +69,8 @@ bool isBike = false;
 
 bool isInVehicle = false;
 
-float longitudeOffset3P = 0.f;
-float heightOffset3P = 0.f;
+float calcLongitudeOffset3P = 0.f;
+float calcHeightOffset3P = 0.f;
 
 float heightIcrementCalc = 0.f;
 
@@ -588,7 +589,8 @@ void ReadSettings(bool notify)
 		lookLeftKey =  strdup(ini.GetValue("keyMappings", "lookLeftKey", "B"));
 		lookRightKey = strdup(ini.GetValue("keyMappings", "lookRightKey", "N"));
 
-		distanceOffset = (float) ini.GetDoubleValue("3rdPersonView", "distanceOffset", 0.0);
+		distanceOffset3p = (float)ini.GetDoubleValue("3rdPersonView", "distanceOffset", 0.0);
+		heightOffset3p = (float) ini.GetDoubleValue("3rdPersonView", "heightOffset", 0.0);
 		cameraAngle3p = clamp((float)ini.GetDoubleValue("3rdPersonView", "cameraAngle", 3.5), 0.f, 20.f);
 
 		fov3P = (float) ini.GetDoubleValue("3rdPersonView", "fov", 77.5);
@@ -996,16 +998,16 @@ void updateVehicleProperties()
 	isBike = vehClass == eVehicleClass::VehicleClassCycles || vehClass == eVehicleClass::VehicleClassMotorcycles;
 	isSuitableForCam = vehClass != eVehicleClass::VehicleClassTrains && vehClass != eVehicleClass::VehicleClassPlanes && vehClass != eVehicleClass::VehicleClassHelicopters && vehClass != eVehicleClass::VehicleClassBoats;
 
-	longitudeOffset3P = getVehicleLongitudeFromCenterBack(veh) + 0.7f;
+	calcLongitudeOffset3P = getVehicleLongitudeFromCenterBack(veh) + 0.7f;
 
-	heightOffset3P = clamp(getVehicleHeightFromCenterUp(veh) + 0.5f, 0.f, 2.0f);
+	calcHeightOffset3P = clamp(getVehicleHeightFromCenterUp(veh) + 0.5f, 0.f, 2.0f);
 	//ShowNotification(std::to_string(heightOffset3P).c_str());
 
-	if (heightOffset3P > 1.75f)
+	if (calcHeightOffset3P > 1.75f)
 	{
-		extraAngleCamHeight = clamp(lerp(0.1f, 2.0f, unlerp(1.75f, 2.00f, heightOffset3P)), 0.f, 3.0f);
-		heightOffset3P += (extraAngleCamHeight * 0.5f);
-		longitudeOffset3P += extraAngleCamHeight;
+		extraAngleCamHeight = clamp(lerp(0.1f, 2.0f, unlerp(1.75f, 2.00f, calcHeightOffset3P)), 0.f, 3.0f);
+		calcHeightOffset3P += (extraAngleCamHeight * 0.5f);
+		calcLongitudeOffset3P += extraAngleCamHeight;
 
 		extraAngleCamHeight = clamp(extraAngleCamHeight, 0.f, 2.25f);
 	}
@@ -1013,13 +1015,13 @@ void updateVehicleProperties()
 		extraAngleCamHeight = 0.0f;
 
 	if (isBike) {
-		longitudeOffset3P += 1.f;
-		heightOffset3P = 1.38f;
+		calcLongitudeOffset3P += 1.f;
+		calcHeightOffset3P = 1.38f;
 	}
 
-	longitudeOffset3P += 1.45f + distanceOffset;
+	calcLongitudeOffset3P += 1.45f + distanceOffset3p;
 
-	heightIcrementCalc = longitudeOffset3P * tan(cameraAngle3p * PI / 180.0);
+	heightIcrementCalc = calcLongitudeOffset3P * tan(cameraAngle3p * PI / 180.0);
 
 	vehHasTowBone = vehHasBone("tow_arm");
 	vehHasTrailerBone = vehHasBone("attach_female");
@@ -1072,7 +1074,7 @@ void setupCurrentCamera() {
 		dirQuat3P = lookQuat;
 		smoothQuat3P = lookQuat;
 
-		prevCamPos = (vehPos + (up * heightOffset3P)) + (up * (0.14f + extraAngleCamHeight)) + ((lookQuat) * back * (longitudeOffset3P + currentTowLongitudeIncrement));
+		prevCamPos = (vehPos + (up * calcHeightOffset3P)) + (up * (0.14f + extraAngleCamHeight)) + ((lookQuat) * back * (calcLongitudeOffset3P + currentTowLongitudeIncrement));
 	}
 
 	CAM::SET_FOLLOW_VEHICLE_CAM_VIEW_MODE(1);
@@ -1406,7 +1408,7 @@ Vector3f V3Reflect(Vector3f vector, Vector3f normal)
 
 void updateCam3pNfsAlgorithm()
 {
-	float heigthOffset = 0.15f + heightIcrementCalc;
+	float calcHeigthOffset = heightOffset3p + 0.15f + heightIcrementCalc;
 
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45f * getDeltaTime());
 	currentTowLongitudeIncrement = lerp(currentTowLongitudeIncrement, towLongitudeIncrement, 1.75f * getDeltaTime());
@@ -1444,7 +1446,7 @@ void updateCam3pNfsAlgorithm()
 
 	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * (lerp(0.6f, 1.2f, smoothIsInAirNfs)));
 
-	Vector3f posCenter = vehPos + (up * heightOffset3P) + (vehForwardVector * finalPivotFrontOffset);
+	Vector3f posCenter = vehPos + (up * calcHeightOffset3P) + (vehForwardVector * finalPivotFrontOffset);
 
 	semiDelayedVehSpeed = lerp(semiDelayedVehSpeed, vehSpeed, clamp01(max(2.5f, vehSpeed) * getDeltaTime()));
 	delayedVehSpeed = lerp(delayedVehSpeed, semiDelayedVehSpeed, clamp01(max(0.5f, semiDelayedVehSpeed * 0.75f) * getDeltaTime()));
@@ -1457,7 +1459,7 @@ void updateCam3pNfsAlgorithm()
 
 	float highSpeedFactor = unlerp(hightSpeedMin, highSpeedMax, clamp(vehSpeed, hightSpeedMin, highSpeedMax)) * 0.020f;
 
-	Vector3f targetPos = vehPos + (up * heightOffset3P) + ((currentTowHeightIncrement + heigthOffset) * up) + (vehForwardVector * finalPivotFrontOffset);
+	Vector3f targetPos = vehPos + (up * calcHeightOffset3P) + ((currentTowHeightIncrement + calcHeigthOffset) * up) + (vehForwardVector * finalPivotFrontOffset);
 	targetPos += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.5f * (clamp01(vehSpeed * 0.7f)))*/;
 	
 	targetPos += smoothVelocity * highSpeedFactor * (1.f - smoothIsInAir) * max(((vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 250.f), 0.f) * 0.45f;
@@ -1543,7 +1545,7 @@ void updateCam3pNfsAlgorithm()
 
 	float pivotInfluenceLook = lerp(finalPivotFrontOffset, -0.2f, clamp01(abs(lookHorizontalAngle * 0.00277f))) * 1.f - smoothIsInAir;
 
-	Vector3f camPosSmooth = posCenter + V3CurrentTowHeightIncrement + ((finalQuat3P) * back * (longitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + (airDistance - finalPivotFrontOffset) + distIncFinal )) + (up * (aimHeightIncrement + heigthOffset/* + heightInc */));
+	Vector3f camPosSmooth = posCenter + V3CurrentTowHeightIncrement + ((finalQuat3P) * back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + (airDistance - finalPivotFrontOffset) + distIncFinal )) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
 
 	//camPosSmooth += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.25f * clamp01(vehSpeed * 0.7f)) */;
 
