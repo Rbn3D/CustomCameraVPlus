@@ -530,6 +530,22 @@ void updateMouseState()
 		hasInputThisFrame = false;
 }
 
+// Projects a vector onto another vector.
+Vector3f Project(Vector3f vector, Vector3f onNormal)
+{
+	float sqrMag = onNormal.dot(onNormal);
+	if (sqrMag < FLT_EPSILON)
+		return Vector3f();
+	else
+		return onNormal * vector.dot(onNormal) / sqrMag;
+}
+
+// Projects a vector onto a plane defined by a normal orthogonal to the plane.
+Vector3f ProjectOnPlane(Vector3f vector, Vector3f planeNormal)
+{
+	return vector - Project(vector, planeNormal);
+}
+
 void setGameplayCamRelativeRotation(float heading) {
 	CAM::SET_GAMEPLAY_CAM_RELATIVE_HEADING(relAngle3p);
 	CAM::SET_GAMEPLAY_CAM_RELATIVE_PITCH(0.f, 1.f);
@@ -1157,6 +1173,8 @@ void updateCameraDriverSeat() {
 
 	Quaternionf finalQ;
 
+	float wheelieFactor = 0.f;
+
 	if (isBike) {
 		CAM::STOP_CAM_POINTING(customCam);
 		Vector3f rot = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
@@ -1164,6 +1182,11 @@ void updateCameraDriverSeat() {
 
 		//smoothRotSeat = Vector3fLerpAngle(smoothRotSeat, rot, clamp01(30.f * getDeltaTime()));
 		smoothQuatSeat = getEntityQuaternion(veh);
+		veloQuat3P = lookRotation(vehSpeed < 1.25f || vehVelocity.dot(vehForwardVector) <= 0.12f ? vehForwardVector : vehVelocity);
+
+		smoothQuatSeat = slerp(veloQuat3P, smoothQuatSeat, smoothIsInAir);
+
+		wheelieFactor = clamp(vehForwardVector.dot(up), 0.f, 0.5f) * (1.f - smoothIsInAir);
 
 		float leftRightAngle = RelativeLookFactor < 0 ?
 			lerp(0.f, -LookLeftAngle1p, -RelativeLookFactor)
@@ -1180,6 +1203,17 @@ void updateCameraDriverSeat() {
 			* AngleAxisf(yaw, Vector3f::UnitZ());
 
 		finalQ = smoothQuatSeat * qLookLeftRight;
+	
+		//Vector3f veloPlane = ProjectOnPlane(vehSpeed > 0.05f ? vehVelocity : vehForwardVector, vehForwardVector.cross(up)).normalized();
+		//float wheelieFactor = veloPlane.dot(vehForwardVector) * (1.f - smoothIsInAir) * 5.f;
+
+		//float roll1 = wheelieFactor * DEG_TO_RAD, pitch1 = 0.f, yaw1 = 0.f;
+		//Quaternionf wheelieCompensation;
+		//wheelieCompensation = AngleAxisf(roll1, Vector3f::UnitX())
+		//	* AngleAxisf(pitch1, Vector3f::UnitY())
+		//	* AngleAxisf(yaw1, Vector3f::UnitZ());
+
+		//finalQ *= wheelieCompensation;
 
 		if (isAiming || hasInputThisFrame)
 		{
@@ -1265,6 +1299,12 @@ void updateCameraDriverSeat() {
 	}
 
 	camPos = camPos + smoothQuatSeat * back * distIncFinal;
+
+	if (isBike) 
+	{
+		camPos += wheelieFactor * 0.155f * up;
+		camPos += wheelieFactor * 0.540f * -((vehSpeed < 1.25f || vehVelocity.dot(vehForwardVector) <= 0.12f ? vehForwardVector : vehVelocity).normalized());
+	}
 
 	CAM::SET_CAM_COORD(customCam, camPos.x(), camPos.y(), camPos.z());
 
