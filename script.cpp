@@ -1595,7 +1595,7 @@ void updateCam3pNfsAlgorithm()
 
 	camPosSmooth = lerp(camPosSmooth, camPosCam, 1.6375f * getDeltaTime());
 
-	Quaternionf compensationDir = slerp(finalQuat3P, smoothQuat3P, factorLook);
+	Quaternionf compensationDir = slerp(finalQuat3P, veloQuat3P, factorLook);
 
 	float distOffsetRotAxis = distanceOnAxisNoAbs(camPosCam, camPosSmooth, compensationDir * back);
 
