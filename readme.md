@@ -13,7 +13,8 @@ This is a C++ version of my [Custom Camera V](https://github.com/Rbn3D/CustomCam
 * Nice feeling of speed
 * Look behind by by pressing "Look Behind" button (key "C" by default)
 * Look left by pressing B, right by pressing N
-* Supports big vehicles, and even vehicles towing another vehicles
+* Supports big vehicles, and even vehicles towing other vehicles
+* Wheelie camera for bikes (first person) (cam doesn't look up during a wheelie)
 * Support to look left/right/back from steering wheel! 
 	Requires Manual Transmission Mod by @ikt (Version 4.6.0 or newer):
 	https://www.gta5-mods.com/scripts/manual-transmission-ikt
