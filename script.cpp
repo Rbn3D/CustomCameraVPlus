@@ -196,6 +196,8 @@ float mouseSensibility = 1.f;
 // look left = -1.f; lookRight = 1.f; Center = 0.f (For smooth transitions)
 float RelativeLookFactor = 0.f;
 
+float prevLookHorizontalAngle = 0.f;
+
 bool readInputFromMt = true;
 float vehDelayedAccel = 0.f;
 float vehDelayedAccel2 = 0.f;
@@ -1568,6 +1570,24 @@ void updateCam3pNfsAlgorithm()
 		lookQuat = smoothQuat3P * qLookLeftRight;
 	}
 
+	bool switchBack = false;
+
+	if ((prevLookHorizontalAngle >= 165.f && prevLookHorizontalAngle <= 180.1f) && (lookHorizontalAngle <= 179.9f)) {
+
+		bool switchBack = true;
+		lookHorizontalAngle = 0.f;
+
+		lookQuat = vehQuat;
+		dirQuat3P = lookQuat;
+		smoothQuat3P = lookQuat;
+		finalQuat3P = lookQuat;
+
+		prevCamPos = (vehPos + (up * calcHeightOffset3P)) + (up * (0.14f + extraAngleCamHeight)) + ((lookQuat)* back * (calcLongitudeOffset3P + currentTowLongitudeIncrement));
+		camPosSmooth = prevCamPos;
+	}
+
+	prevLookHorizontalAngle = lookHorizontalAngle;
+
 	float factorLook = clamp01(timerResetLook + abs(RelativeLookFactor) + (lookBehind ? 1.f : 0.f));
 
 	timerResetLook = clamp(timerResetLook - getDeltaTime(), 0.f, 2.f);
@@ -1590,21 +1610,28 @@ void updateCam3pNfsAlgorithm()
 	float pivotInfluenceLook = lerp(finalPivotFrontOffset, -0.2f, clamp01(abs(lookHorizontalAngle * 0.00277f))) * 1.f - smoothIsInAir;
 
 	Vector3f camPosCam = posCenter + V3CurrentTowHeightIncrement + ((finalQuat3P) * back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + (airDistance - finalPivotFrontOffset) + distIncFinal )) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
+	Vector3f camPosFinal;
 
 	//camPosSmooth += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.25f * clamp01(vehSpeed * 0.7f)) */;
+	if (!switchBack)
+	{
+		camPosSmooth = lerp(camPosSmooth, camPosCam, 1.6375f * getDeltaTime());
 
-	camPosSmooth = lerp(camPosSmooth, camPosCam, 1.6375f * getDeltaTime());
+		Quaternionf compensationDir = slerp(finalQuat3P, veloQuat3P, factorLook);
 
-	Quaternionf compensationDir = slerp(finalQuat3P, veloQuat3P, factorLook);
+		float distOffsetRotAxis = distanceOnAxisNoAbs(camPosCam, camPosSmooth, compensationDir * back);
 
-	float distOffsetRotAxis = distanceOnAxisNoAbs(camPosCam, camPosSmooth, compensationDir * back);
+		camPosSmooth += compensationDir * front * distOffsetRotAxis;
 
-	camPosSmooth += compensationDir * front * distOffsetRotAxis;
+		//Vector3f camPosFinal = camPosSmooth;
 
-	//Vector3f camPosFinal = camPosSmooth;
-
-	//if (isAiming || timerResetLook > 0.00001f || !AreSameFloat(0.f, lookHorizontalAngle))
-	Vector3f camPosFinal = lerp(camPosSmooth, camPosCam, factorLook);
+		//if (isAiming || timerResetLook > 0.00001f || !AreSameFloat(0.f, lookHorizontalAngle))
+		camPosFinal = lerp(camPosSmooth, camPosCam, factorLook);
+	}
+	else
+	{
+		camPosFinal = camPosCam;
+	}
 
 	prevCamPos = camPosFinal;
 	setCamPos(customCam, camPosFinal);

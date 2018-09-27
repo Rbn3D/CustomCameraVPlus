@@ -1,3 +1,9 @@
+1.5.0
+
+* More natural and "elastic" cam behaviour in 3rd person. Reworked algorithm.
+* Implemented smooth camera heading in 3rd person camera, mostly noticeable when driving fast and cornering, smoother movement.
+* Wheelie camera for bikes (cam will no longer look to the sky during a wheelie).
+
 1.4.1
 
 * Added an option to set the height of the third person camera. (Configurable in settings)
