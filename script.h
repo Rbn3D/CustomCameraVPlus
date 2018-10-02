@@ -23,6 +23,16 @@
 
 #include <string.h>
 
+//MinHook
+#include <Windows.h>
+#include "..\..\inc\minhook\MinHook.h"
+
+#if defined _M_X64
+#pragma comment(lib, "../../inc/minhook/MinHook.x64.lib")
+#elif defined _M_IX86
+#pragma comment(lib, "..\..\inc\minhook\libMinHook.x86.lib")
+#endif
+
 using namespace Eigen;
 
 #ifndef M_PI

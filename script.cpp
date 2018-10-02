@@ -694,11 +694,29 @@ void nextCam() {
 	currentCam = currentCam % camsLength;
 }
 
+bool SomeVehicleBrakeAnimCheck_hook(Ped* ped, Vehicle* vehicle, float a3, int a4)
+{
+	return false;
+}
+
 void firstInit()
 {
-	UINT_PTR address = FindPattern("\x48\x8B\xC7\xF3\x0F\x10\x0D", "xxxxxxx") - 0x1D;
-	address = address + *reinterpret_cast<int*>(address) + 4;
-	gamePlayCameraAddr = *reinterpret_cast<UINT_PTR*>(*reinterpret_cast<int*>(address + 3) + address + 7);
+	UINT_PTR camAddress = FindPattern("\x48\x8B\xC7\xF3\x0F\x10\x0D", "xxxxxxx") - 0x1D;
+	camAddress = camAddress + *reinterpret_cast<int*>(camAddress) + 4;
+	gamePlayCameraAddr = *reinterpret_cast<UINT_PTR*>(*reinterpret_cast<int*>(camAddress + 3) + camAddress + 7);
+
+	UINT_PTR brakeFuncAddress = FindPattern("E8 ? ? ? ? 84 C0 74 13 F6 83 ? ? ? ? ? 75 0A BA", "");
+
+	LPVOID SomeVehicleBrakeAnimCheck_orig = reinterpret_cast<LPVOID>(brakeFuncAddress);
+
+	MH_Initialize();
+	
+	MH_CreateHook(&SomeVehicleBrakeAnimCheck_orig, &SomeVehicleBrakeAnimCheck_hook,
+		reinterpret_cast<LPVOID*>(&SomeVehicleBrakeAnimCheck_orig))
+		;
+
+	MH_EnableHook(&SomeVehicleBrakeAnimCheck_orig);
+
 
 	enum Button
 	{
