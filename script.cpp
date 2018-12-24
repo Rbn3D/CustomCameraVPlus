@@ -38,6 +38,7 @@ Vector3f vehRightVector;
 Vector3f vehUpVector;
 Vector3f vehRelativeSpeedVector;
 Vector3f vehAngularVelocity;
+Vector3f smoothVehAngularVelocity;
 
 float vehAcceleration = 0.f;
 float smoothAccelerationFactor = 0.f;
@@ -170,6 +171,10 @@ float LookLeftAngle3p = 90.0f;
 float LookRightAngle3p = 90.0f;
 
 bool InertiaAffectsPitch3p = false;
+bool SmartHeadingEnabled = true;
+float SmartHeadingIntensity = 1.f;
+float smoothSmartHeading = 0.f;
+float smoothSmartHeading2 = 0.f;
 
 bool InertiaEffects1p = true;
 
@@ -620,6 +625,9 @@ void ReadSettings(bool notify)
 		
 		InertiaAffectsPitch3p = ini.GetLongValue("3rdPersonView", "InertiaAffectsPitch", 0) > 0;
 
+		SmartHeadingEnabled = ini.GetLongValue("3rdPersonView", "SmartHeading", 1l) > 0;
+		SmartHeadingIntensity = (float)ini.GetDoubleValue("3rdPersonView", "SmartHeadingIntensity", 1.0);
+
 		InertiaEffects1p = ini.GetLongValue("1stPersonView", "InertiaEffects", 1) > 0;
 
 		LookLeftAngle1p = (float)ini.GetDoubleValue("1stPersonView", "lookLeftAngle", 75.0);
@@ -1069,6 +1077,7 @@ void updateVehicleVars()
 	vehAcceleration = getVehicleAcceleration();
 	vehRelativeSpeedVector = toV3f(ENTITY::GET_ENTITY_SPEED_VECTOR(veh, true));
 	vehAngularVelocity = toV3f(ENTITY::GET_ENTITY_ROTATION_VELOCITY(veh));
+	smoothVehAngularVelocity = lerp(smoothVehAngularVelocity, vehAngularVelocity, 2.f * getDeltaTime());
 }
 
 void setupCurrentCamera() {
@@ -1649,8 +1658,33 @@ void updateCam3pNfsAlgorithm()
 		setCamPos(customCam, toV3f(endCoords) + (finalQuat3P * front * 0.1f));
 	}
 	// End raycast //
+	
+	Vector3f rotEuler;
 
-	Vector3f rotEuler = QuatToEuler(finalQuat3P);
+	if(SmartHeadingEnabled)
+	{ 
+		Quaternionf quatAux = finalQuat3P;
+
+		float velodiff = vehForwardVector.normalized().x() - smoothVelocity.normalized().x();
+
+		float smartLook = velodiff * clamp01(vehSpeed) * SmartHeadingIntensity * 0.175f;
+		smoothSmartHeading = lerp(/*(smoothSmartHeading2 + smoothSmartHeading) * 0.5f*/ smoothSmartHeading, smartLook, 1.75f * getDeltaTime());
+		//smoothSmartHeading2 = lerp(smoothSmartHeading2, smartLook, 2.85f * getDeltaTime());
+
+		float roll = 0.f, pitch = 0.f, yaw = smoothSmartHeading/* - smoothSmartHeading2*/;
+		Quaternionf qSmartLook;
+		qSmartLook = AngleAxisf(roll, Vector3f::UnitX())
+			* AngleAxisf(pitch, Vector3f::UnitY())
+			* AngleAxisf(yaw, Vector3f::UnitZ());
+		
+		quatAux = quatAux * qSmartLook;
+
+		rotEuler = QuatToEuler(quatAux);
+	}
+	else
+	{
+		rotEuler = QuatToEuler(finalQuat3P);
+	}
 
 	rotEuler[1] = 0.f;
 
