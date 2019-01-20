@@ -1665,13 +1665,20 @@ void updateCam3pNfsAlgorithm()
 	{ 
 		Quaternionf quatAux = finalQuat3P;
 
-		float velodiff = vehForwardVector.normalized().x() - smoothVelocity.normalized().x();
+		float velodiff = vehVelocity.normalized().x() - smoothVelocity.normalized().x();
 
-		float smartLook = velodiff * clamp01(vehSpeed) * SmartHeadingIntensity * 0.175f;
-		smoothSmartHeading = lerp(/*(smoothSmartHeading2 + smoothSmartHeading) * 0.5f*/ smoothSmartHeading, smartLook, 1.75f * getDeltaTime());
+		//float smartLook = velodiff * (vehSpeed * 0.5f) * SmartHeadingIntensity * 0.175f;
+		//smoothSmartHeading = lerp((smoothSmartHeading2 + smoothSmartHeading) * 0.5f, smartLook, 1.75f * getDeltaTime());
 		//smoothSmartHeading2 = lerp(smoothSmartHeading2, smartLook, 2.85f * getDeltaTime());
 
-		float roll = 0.f, pitch = 0.f, yaw = smoothSmartHeading/* - smoothSmartHeading2*/;
+		//float roll = 0.f, pitch = 0.f, yaw = smoothSmartHeading - smoothSmartHeading2;
+
+		float smartLook = velodiff * clamp01(vehSpeed * 0.1f) * SmartHeadingIntensity * 0.33f;
+		smoothSmartHeading = lerp(smoothSmartHeading, smartLook, 1.95f * getDeltaTime());//lerp((smoothSmartHeading2 + smoothSmartHeading) * 0.5f, smartLook, 1.75f * getDeltaTime());
+		//smoothSmartHeading2 = lerp(smoothSmartHeading2, smartLook, 2.85f * getDeltaTime());
+
+		float roll = 0.f, pitch = 0.f, yaw = smoothSmartHeading;// - smoothSmartHeading2;
+
 		Quaternionf qSmartLook;
 		qSmartLook = AngleAxisf(roll, Vector3f::UnitX())
 			* AngleAxisf(pitch, Vector3f::UnitY())
@@ -1688,7 +1695,7 @@ void updateCam3pNfsAlgorithm()
 
 	rotEuler[1] = 0.f;
 
-	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f) - cameraAngle3p, rotEuler.y(), rotEuler.z(), 2);
+	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z(), 2);
 }
 
 void updateCameraSmooth3P() {
