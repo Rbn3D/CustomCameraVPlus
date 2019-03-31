@@ -9,11 +9,11 @@
 #include <Psapi.h>
 
 #include "..\..\inc\GTAVMenuBase\menu.h"
-#include "..\..\inc\GTAVMenuBase\menu.cpp"
+//#include "..\..\inc\GTAVMenuBase\menu.cpp"
 #include "..\..\inc\GTAVMenuBase\menucontrols.h"
-#include "..\..\inc\GTAVMenuBase\menucontrols.cpp"
+//#include "..\..\inc\GTAVMenuBase\menucontrols.cpp"
 #include "..\..\inc\GTAVMenuBase\menukeyboard.h"
-#include "..\..\inc\GTAVMenuBase\menukeyboard.cpp"
+//#include "..\..\inc\GTAVMenuBase\menukeyboard.cpp"
 
 using namespace NativeMenu;
 
