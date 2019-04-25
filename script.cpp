@@ -26,6 +26,7 @@ BOOL camInitialized = false;
 Vehicle veh;
 Ped playerPed;
 
+Vector3f prevVehPos;
 Vector3f vehPos;
 Vector3f vehRot;
 Vector3f vehVelocity;
@@ -40,6 +41,8 @@ Vector3f vehRelativeSpeedVector;
 Vector3f vehAngularVelocity;
 Vector3f smoothVehAngularVelocity;
 
+Vector3f smoothVehRightVector;
+
 float vehAcceleration = 0.f;
 float smoothAccelerationFactor = 0.f;
 float prevVehAcceleration = 0.f;
@@ -50,8 +53,8 @@ bool vehHasTrailerBone = false;
 
 //float pivotFrontOffset = 0.365f;
 //float pivotFrontOffsetHighSpeed = 0.0f;
-float pivotFrontOffsetStraight = 0.20f;
-float pivotFrontOffsetTurn = -0.45f;
+float pivotFrontOffsetStraight = 0.f;
+float pivotFrontOffsetTurn = -0.f;
 float finalPivotFrontOffset = 0.f;
 
 Camera customCam = NULL;
@@ -187,7 +190,7 @@ float delayedVehSpeed = 0.f;
 Vector3f prevCamPos = Vector3f();
 Vector3f camPosSmooth = Vector3f();
 
-float smoothTurnForce3P = 0.f;
+//float smoothTurnForce3P = 0.f;
 float smoothAngular1 = 0.f;
 float smoothAngular2 = 0.f;
 float smoothAngular3 = 0.f;
@@ -212,8 +215,10 @@ float RelativeLookFactor = 0.f;
 float prevLookHorizontalAngle = 0.f;
 
 bool readInputFromMt = true;
-float vehDelayedAccel = 0.f;
+float vehDelayedAccel1 = 0.f;
 float vehDelayedAccel2 = 0.f;
+float vehDelayedAccel3 = 0.f;
+float vehDelayedAccel4 = 0.f;
 float smoothIsGoingForwardInc = 0.f;
 
 char * reloadKey = "F10";
@@ -1112,6 +1117,8 @@ void setupCurrentCamera() {
 
 		prevCamPos = (vehPos + (up * calcHeightOffset3P)) + (up * (0.14f + extraAngleCamHeight)) + ((lookQuat) * back * (calcLongitudeOffset3P + currentTowLongitudeIncrement));
 		camPosSmooth = prevCamPos;
+		prevVehPos = vehPos;
+		smoothVehRightVector = vehRightVector;
 	}
 
 	CAM::SET_FOLLOW_VEHICLE_CAM_VIEW_MODE(1);
@@ -1176,13 +1183,13 @@ void updateCameraDriverSeat() {
 		float accelScale = VEHICLE::GET_VEHICLE_ACCELERATION(veh);
 
 		float vehDirectAccel = ((double)(vehAcceleration * accelScale)) * 1700.0;
-		vehDelayedAccel = lerp(vehDelayedAccel, vehDirectAccel, 1.725f * getDeltaTime());
+		vehDelayedAccel1 = lerp(vehDelayedAccel1, vehDirectAccel, 1.725f * getDeltaTime());
 		vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.765f * getDeltaTime());
 
-		if (vehSpeed <= 0.02f && vehDelayedAccel > vehDelayedAccel2)
-			vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDelayedAccel, 8.f * getDeltaTime());
+		if (vehSpeed <= 0.02f && vehDelayedAccel1 > vehDelayedAccel2)
+			vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDelayedAccel1, 8.f * getDeltaTime());
 
-		float accelThreshold = (vehDelayedAccel - vehDelayedAccel2);
+		float accelThreshold = (vehDelayedAccel1 - vehDelayedAccel2);
 
 		distIncFinal = accelThreshold + max(0.f, vehSpeed * 0.01295f) - 0.3f;
 
@@ -1480,13 +1487,17 @@ void updateCamV3Alogrithm()
 	float accelScale = VEHICLE::GET_VEHICLE_ACCELERATION(veh);
 
 	float vehDirectAccel = ((double)(vehAcceleration * accelScale)) * 1700.0;
-	vehDelayedAccel = lerp(vehDelayedAccel, vehDirectAccel, 1.735f * getDeltaTime());
+
+	vehDelayedAccel1 = lerp(vehDelayedAccel1, vehDirectAccel, 1.735f * getDeltaTime());
 	vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.625f * getDeltaTime());
+
+	vehDelayedAccel3 = lerp(vehDelayedAccel3, vehDirectAccel, 0.30f * getDeltaTime());
+	vehDelayedAccel4 = lerp(vehDelayedAccel4, vehDirectAccel, 0.08f * getDeltaTime());
 
 	float isGoingForwardInc = clamp(((vehSpeed - 1.f) * 0.6f) * accelScale, 0.f, 1.2f) * 0.425f;
 	smoothIsGoingForwardInc = lerp(smoothIsGoingForwardInc, isGoingForwardInc, 0.8f * getDeltaTime());
 
-	float accelThreshold = (vehDelayedAccel - vehDelayedAccel2);
+	float accelThreshold = ((vehDelayedAccel1 - vehDelayedAccel2) + (vehDelayedAccel3 - vehDelayedAccel4));
 
 	float distIncFinal = clamp(accelThreshold, -1.7f, 1.5f) + max(0.f, vehSpeed * 0.01295f) - 0.3f + smoothIsGoingForwardInc;
 
@@ -1504,23 +1515,34 @@ void updateCamV3Alogrithm()
 
 
 	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * (lerp(0.6f, 1.2f, smoothIsInAirNfs)));
-
 	float vehSpeedCoeff = 1.f - clamp01(vehSpeed * 0.01f);
+
 	float turnForce = -vehAngularVelocity.z() * vehSpeedCoeff * 0.25f;
 
 	float angularVelZ = vehAngularVelocity.z();
 
-	smoothAngular1 = lerp(smoothAngular1, angularVelZ, 3.5f * getDeltaTime());
-	smoothAngular2 = lerp(smoothAngular2, angularVelZ, 1.65f * getDeltaTime());
-	smoothAngular3 = lerp(smoothAngular3, angularVelZ, 1.1f * getDeltaTime());
+	float lateralSlideDist = distanceOnAxisNoAbs(prevVehPos, vehPos, vehRightVector);
+	//lateralSlideDist *= 5.f;
 
-	float smoothAngularDiff = -(smoothAngular1 + smoothAngular2 + smoothAngular3) * 0.33f;
+	prevVehPos = vehPos;
 
-	smoothTurnForce3P = lerp(smoothTurnForce3P, smoothAngularDiff * 0.25f, 2.f * getDeltaTime());
+	float avg1 = lerp(lateralSlideDist, /*angularVelZDrift*/ angularVelZ, 0.5f);
+	float avg2 = lerp(lateralSlideDist, angularVelZ, 0.38f);
+	float avg3 = lerp(lateralSlideDist, angularVelZ, 0.3f);
 
+	//smoothAngular1 = lerp(smoothAngular1, avg1, 3.5f * getDeltaTime());
+	//smoothAngular2 = lerp(smoothAngular2, avg2, 1.65f * getDeltaTime());
+	//smoothAngular3 = lerp(smoothAngular3, avg3, 1.1f * getDeltaTime());
+
+	//smoothAngular1 = lerp(smoothAngular1, lateralSlideDist, 3.5f * getDeltaTime());
+	//smoothAngular2 = lerp(smoothAngular2, lateralSlideDist, 1.65f * getDeltaTime());
+	//smoothAngular3 = lerp(smoothAngular3, lateralSlideDist, 1.1f * getDeltaTime());
+
+	//float smoothAngularDiff = -(smoothAngular1 + smoothAngular2 + smoothAngular3) * 0.033f;
+	float smoothAngularDiff = -(avg1 + avg2 + avg3) * 0.0333333f;
+	//smoothTurnForce3P = lerp(smoothTurnForce3P, smoothAngularDiff * 0.125f, 2.f * getDeltaTime());
 
 	finalPivotFrontOffset = lerp(pivotFrontOffsetStraight, pivotFrontOffsetTurn, clamp01(smoothAngularDiff * 0.125f));
-
 
 	Vector3f posCenter = vehPos + (up * calcHeightOffset3P) + (vehForwardVector * finalPivotFrontOffset);
 
@@ -1547,7 +1569,14 @@ void updateCamV3Alogrithm()
 	smoothVelocityDir = lerp(smoothVelocityDir, velocityDir, 11.f * getDeltaTime());
 
 	dirQuat3P = lookRotation(smoothVelocityDir, up); 
-	veloQuat3P = lookRotation(vehVelocity);
+	if(!isBike)
+		veloQuat3P = lookRotation(vehVelocity);
+	else
+	{
+		Quaternionf veloQuatAux = lookRotation(vehSpeed < 1.25f || vehVelocity.dot(vehForwardVector) <= 0.12f ? vehForwardVector : vehVelocity);
+		veloQuat3P = slerp(veloQuat3P, veloQuatAux, 3.f * getDeltaTime());
+	}
+
 
 	Vector3f V3CurrentTowHeightIncrement = up * currentTowHeightIncrement;
 
@@ -1654,16 +1683,16 @@ void updateCamV3Alogrithm()
 	//auto compositeEuler = Vector3f(finalQuatEuler.x(), finalQuatEuler.y(), smoothQuatEuler.z());
 
 	//auto compositeQuat = QuatEuler(compositeEuler);
-	auto compositeQuat = slerp(smoothQuat3P, finalQuat3P, clamp01(0.5f + (smoothIsInAir * 0.5f) ));
+	auto compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, clamp01(0.5f + (smoothIsInAir * 0.5f) ));
 
 	Vector3f camPosCam = posCenter + V3CurrentTowHeightIncrement + ((compositeQuat)* back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + (airDistance - finalPivotFrontOffset) + distIncFinal)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
 
 	prevCamPos = camPosCam;
 	Vector3f camPosFinal = camPosCam;
-	camPosFinal += smoothTurnForce3P * 0.8f * (compositeQuat * right);
-	camPosFinal += abs(smoothTurnForce3P) * 1.15f * (compositeQuat * front);
+	camPosFinal += smoothAngularDiff * (compositeQuat * right);
+	camPosFinal += abs(smoothAngularDiff) * 1.25f * (compositeQuat * front);
 
-	camPosFinal += abs(smoothTurnForce3P) * lerp(0.f, 0.15f, clamp01(1.f - (vehSpeed * 0.04f))) * down;
+	camPosFinal += abs(smoothAngularDiff) * lerp(0.f, 0.15f, clamp01(1.f - (vehSpeed * 0.04f))) * down;
 
 	////camPosSmooth += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.25f * clamp01(vehSpeed * 0.7f)) */;
 	//if (!switchBack)
@@ -1712,7 +1741,9 @@ void updateCamV3Alogrithm()
 
 	rotEuler[1] = 0.f;
 
-	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z(), 2);
+	smoothVehRightVector = lerp(smoothVehRightVector, vehRightVector, 4.5f * getDeltaTime());
+
+	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z() + ((smoothAngularDiff * -abs(ultraSmoothVelocity.dot(smoothVehRightVector))) * 0.2f), 2);
 }
 
 void updateCam3pNfsAlgorithm()
@@ -1730,13 +1761,13 @@ void updateCam3pNfsAlgorithm()
 	float accelScale = VEHICLE::GET_VEHICLE_ACCELERATION(veh);
 
 	float vehDirectAccel = ((double)(vehAcceleration * accelScale)) * 1700.0;
-	vehDelayedAccel = lerp(vehDelayedAccel, vehDirectAccel, 1.735f * getDeltaTime());
+	vehDelayedAccel1 = lerp(vehDelayedAccel1, vehDirectAccel, 1.735f * getDeltaTime());
 	vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.625f * getDeltaTime());
 
-	float isGoingForwardInc = clamp( ((vehSpeed - 1.f) * 0.6f) * accelScale, 0.f, 1.2f) * 0.425f;
+	float isGoingForwardInc = clamp(((vehSpeed - 1.f) * 0.6f) * accelScale, 0.f, 1.2f) * 0.425f;
 	smoothIsGoingForwardInc = lerp(smoothIsGoingForwardInc, isGoingForwardInc, 0.8f * getDeltaTime());
 
-	float accelThreshold = (vehDelayedAccel - vehDelayedAccel2);
+	float accelThreshold = (vehDelayedAccel1 - vehDelayedAccel2);
 
 	float distIncFinal = clamp(accelThreshold, -1.7f, 1.5f) + max(0.f, vehSpeed * 0.01295f) - 0.3f + smoothIsGoingForwardInc;
 
