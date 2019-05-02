@@ -41,7 +41,7 @@ Vector3f vehRelativeSpeedVector;
 Vector3f vehAngularVelocity;
 Vector3f smoothVehAngularVelocity;
 
-Vector3f smoothVehRightVector;
+//Vector3f smoothVehRightVector;
 
 float vehAcceleration = 0.f;
 float smoothAccelerationFactor = 0.f;
@@ -1118,7 +1118,7 @@ void setupCurrentCamera() {
 		prevCamPos = (vehPos + (up * calcHeightOffset3P)) + (up * (0.14f + extraAngleCamHeight)) + ((lookQuat) * back * (calcLongitudeOffset3P + currentTowLongitudeIncrement));
 		camPosSmooth = prevCamPos;
 		prevVehPos = vehPos;
-		smoothVehRightVector = vehRightVector;
+//		smoothVehRightVector = vehRightVector;
 	}
 
 	CAM::SET_FOLLOW_VEHICLE_CAM_VIEW_MODE(1);
@@ -1704,11 +1704,11 @@ void updateCamV3Alogrithm()
 
 	rotEuler = QuatToEuler(compositeQuat);
 
-	rotEuler[1] = 0.f;
+	rotEuler[1] = smoothAngularDiff * -2.25f;
 
-	smoothVehRightVector = lerp(smoothVehRightVector, vehRightVector, 8.8f * getDeltaTime());
+	//smoothVehRightVector = lerp(smoothVehRightVector, vehRightVector, 8.8f * getDeltaTime());
 
-	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z() + easeInCubic(clamp01((smoothAngularDiff * 0.75f) - 0.3f)), 2);
+	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z() + (smoothAngularDiff * 1.925f), 2);
 	//CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z() + ((smoothAngularDiff * + (smoothVelocity.dot(smoothVehRightVector))) * 0.2f), 2);
 }
 
