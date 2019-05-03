@@ -229,9 +229,9 @@ char * lookRightKey = "N";
 bool hasInputThisFrame = false;
 bool hasMouseInputThisFrame = false;
 
-bool AreSameFloat(float a, float b)
+bool AreFloatsSimilar(float a, float b)
 {
-	return fabs(a - b) < FLT_EPSILON;
+	return fabs(a - b) < 0.001f;
 }
 
 float getDeltaTime() {
@@ -782,9 +782,9 @@ float mag(Vector3f a)  //calculates magnitude of a
 
 float AreSameVector(Vector3f v1, Vector3f v2)
 {
-	return AreSameFloat(v1.x(), v2.x()) &&
-		AreSameFloat(v1.y(), v2.y()) &&
-		AreSameFloat(v1.z(), v2.z());
+	return AreFloatsSimilar(v1.x(), v2.x()) &&
+		AreFloatsSimilar(v1.y(), v2.y()) &&
+		AreFloatsSimilar(v1.z(), v2.z());
 }
 
 float AngleBetweenVectors(Vector3f v1, Vector3f v2)
@@ -1590,7 +1590,7 @@ void updateCamV3Alogrithm()
 	float lookHorizontalAngle = 0.f;
 
 	if (!lookBehind) {
-		lookHorizontalAngle = RelativeLookFactor < 0 ?
+		lookHorizontalAngle = RelativeLookFactor < 0.f ?
 			lerp(0.f, -LookLeftAngle3p, -RelativeLookFactor)
 			:
 			lerp(0.f, LookRightAngle3p, RelativeLookFactor)
@@ -1601,18 +1601,11 @@ void updateCamV3Alogrithm()
 		lookHorizontalAngle = 180.f;
 	}
 
-	float leftRightRad = lookHorizontalAngle * DEG_TO_RAD;
-
-	float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
-	Quaternionf qLookLeftRight;
-	qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
-		* AngleAxisf(pitch, Vector3f::UnitY())
-		* AngleAxisf(yaw, Vector3f::UnitZ());
-
 	Quaternionf finalQuat3P = dirQuat3P;
 
+	bool horizontalLooking = !AreFloatsSimilar(0.f, lookHorizontalAngle);
 
-	if (isAiming || hasInputThisFrame)
+	if (isAiming || hasInputThisFrame || horizontalLooking)
 	{
 		if (timerResetLook <= 0.00001f)
 		{
@@ -1631,8 +1624,16 @@ void updateCamV3Alogrithm()
 		lookQuat = QuatEuler(Vector3f(rx, 0.f, resultEuler[2]));
 	}
 
-	if (!AreSameFloat(0.f, lookHorizontalAngle))
+	if (horizontalLooking)
 	{
+		float leftRightRad = lookHorizontalAngle * DEG_TO_RAD;
+
+		float roll = 0.f, pitch = 0.f, yaw = leftRightRad;
+		Quaternionf qLookLeftRight;
+		qLookLeftRight = AngleAxisf(roll, Vector3f::UnitX())
+			* AngleAxisf(pitch, Vector3f::UnitY())
+			* AngleAxisf(yaw, Vector3f::UnitZ());
+
 		lookQuat = smoothQuat3P * qLookLeftRight;
 	}
 
@@ -1670,14 +1671,14 @@ void updateCamV3Alogrithm()
 	//auto compositeQuat = QuatEuler(compositeEuler);
 	Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, clamp01((smoothIsInAir *0.5f) + 0.5f));
 
-	if (timerResetLook > 0.001f)
+	if (timerResetLook > 0.001f || horizontalLooking)
 		compositeQuat = slerp(compositeQuat, lookQuat, clamp01(timerResetLook));
 
 	Vector3f camPosCam = posCenter + V3CurrentTowHeightIncrement + ((compositeQuat)* back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + (airDistance - finalPivotFrontOffset) + distIncFinal)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
 
 	prevCamPos = camPosCam;
 	Vector3f camPosFinal = camPosCam;
-	camPosFinal += smoothAngularDiff * 0.625f * (compositeQuat * right);
+	camPosFinal += smoothAngularDiff * 0.655f * (compositeQuat * right);
 	camPosFinal += abs(smoothAngularDiff) * 0.8f * (compositeQuat * front);
 
 	camPosFinal += abs(smoothAngularDiff) * lerp(0.f, 0.15f, clamp01(1.f - (vehSpeed * 0.04f))) * down;
@@ -1708,7 +1709,7 @@ void updateCamV3Alogrithm()
 
 	//smoothVehRightVector = lerp(smoothVehRightVector, vehRightVector, 8.8f * getDeltaTime());
 
-	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z() + (smoothAngularDiff * 1.925f), 2);
+	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z() + (smoothAngularDiff * 1.925f * (1.f - clamp01(smoothVelocity.normalized().dot(vehForwardVector)))), 2);
 	//CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z() + ((smoothAngularDiff * + (smoothVelocity.dot(smoothVehRightVector))) * 0.2f), 2);
 }
 
@@ -1827,7 +1828,7 @@ void updateCam3pNfsAlgorithm()
 		lookQuat = QuatEuler(Vector3f(rx, 0.f, resultEuler[2]));
 	}
 
-	if (!AreSameFloat(0.f, lookHorizontalAngle))
+	if (!AreFloatsSimilar(0.f, lookHorizontalAngle))
 	{
 		lookQuat = smoothQuat3P * qLookLeftRight;
 	}
