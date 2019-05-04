@@ -37,7 +37,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -72,10 +72,10 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalOptions>..\..\lib\ScriptHookV.lib %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>E:\Trabajo\Dev\ScriptHookV_SDK_1.0.617.1a\inc\gainput\build\lib\Debug\gainput-d.lib;xinput.lib;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.16299.0\um\x64\WS2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>D:\Trabajo\Dev\ScriptHookV_SDK_1.0.617.1a\inc\gainput\build\lib\Debug\gainput-d.lib;xinput.lib;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.17763.0\um\x64\WS2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "E:\SteamLibrary\steamapps\common\Grand Theft Auto V\$(ProjectName).asi"</Command>
+      <Command>copy "$(TargetPath)" "D:\SteamLibrary\steamapps\common\Grand Theft Auto V\$(ProjectName).asi"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

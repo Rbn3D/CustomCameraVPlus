@@ -1,3 +1,10 @@
+
+1.6.0
+
+* New third person camera! Racing oriented, so now you can switch between 3 cameras: 1st person, 3rd person smooth (legacy), and 3rd person racing (new)
+* Ability to select the default camera via settings .ini file (Default camera now is 3rd person racing, but you can set it back to 3rd person smooth or 1st person)
+* Other minor enhancements
+
 1.5.0
 
 * More natural and "elastic" cam behaviour in 3rd person. Reworked algorithm.
@@ -32,7 +39,7 @@
 *  Added a sensibility setting for both gamepad/mouse (via INI file).
 *  Fixed an error where camera wasn't taking towed vehicle/trailer distance into account (this happened only in v1.0).
 
-1.0:
+1.0
 
 * Reworked 3rd person camera algorithm (completely rewritten)
 * 3rd person camera rotation doesn't get affected by suspension bounciness
