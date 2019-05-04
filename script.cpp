@@ -134,12 +134,13 @@ float smoothIsAiming = 0.f;
 bool customCamEnabled = true;
 
 enum eCamType {
-	Smooth3P = 0,
-	DriverSeat1P = 1
+	DriverSeat1P = 0,
+	Smooth3P = 1, // Legacy
+	Racing3P = 2, // New
 };
 
-int camsLength = 2;
-int currentCam = eCamType::Smooth3P;
+int camsLength = 3;
+int currentCam = eCamType::Racing3P; // Use new by default
 
 NativeMenu::Menu menu;
 NativeMenu::MenuControls menuControls;
@@ -614,16 +615,16 @@ void ShowNotification(const char* msg)
 	UI::_DRAW_NOTIFICATION(false, true);
 }
 
-void ReadSettings(bool notify) 
+void ReadSettings(bool byUser) 
 {
 	CSimpleIniA ini;
 	//ini.SetUnicode();
 	SI_Error res = ini.LoadFile("CustomCameraVPlus.ini");
 
 	if (res == SI_Error::SI_OK) {
-		reloadKey =    strdup(ini.GetValue("keyMappings", "reloadSettingsKey", "F10"));
+		reloadKey    = strdup(ini.GetValue("keyMappings", "reloadSettingsKey", "F10"));
 		toggleModKey = strdup(ini.GetValue("keyMappings", "toggleModKey", "1"));
-		lookLeftKey =  strdup(ini.GetValue("keyMappings", "lookLeftKey", "B"));
+		lookLeftKey  = strdup(ini.GetValue("keyMappings", "lookLeftKey", "B"));
 		lookRightKey = strdup(ini.GetValue("keyMappings", "lookRightKey", "N"));
 
 		distanceOffset3p = (float)ini.GetDoubleValue("3rdPersonView", "distanceOffset", 0.0);
@@ -654,7 +655,13 @@ void ReadSettings(bool notify)
 		gamepadSensibility = (float)ini.GetDoubleValue("input", "gamepadSensibility", 1.0);
 		mouseSensibility = (float)ini.GetDoubleValue("input", "mouseSensibility", 1.0);
 
-		if (notify) {
+		if (!byUser)
+		{
+			currentCam = (int)ini.GetLongValue("general", "DefaultCamera", 2);
+			currentCam = currentCam % camsLength;
+		}
+
+		if (byUser) {
 			ShowNotification("CCVPlus: Settings reloaded");
 			updateVehicleProperties();
 			setupCurrentCamera();
@@ -1103,7 +1110,7 @@ void setupCurrentCamera() {
 		smoothQuatSeat = getEntityQuaternion(veh);
 		relAngle3p = 0.f;
 	}
-	else if (currentCam == eCamType::Smooth3P) {
+	else if (currentCam == eCamType::Smooth3P || currentCam == eCamType::Racing3P) {
 		CAM::SET_CAM_NEAR_CLIP(customCam, 0.15f);
 		CAM::SET_CAM_FAR_CLIP(customCam, 800.0f);
 		CAM::SET_CAM_FOV(customCam, fov3P);
@@ -1474,7 +1481,7 @@ Vector3f V3Reflect(Vector3f vector, Vector3f normal)
 	return vector - temp;
 }
 
-void updateCamV3Alogrithm()
+void updateCamRacing3P()
 {
 	float calcHeigthOffset = heightOffset3p + 0.15f + heightIcrementCalc;
 
@@ -1705,15 +1712,15 @@ void updateCamV3Alogrithm()
 
 	rotEuler = QuatToEuler(compositeQuat);
 
-	rotEuler[1] = smoothAngularDiff * -2.25f;
+	rotEuler[1] = angularVelZ * -0.2f;
 
 	//smoothVehRightVector = lerp(smoothVehRightVector, vehRightVector, 8.8f * getDeltaTime());
 
-	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z() + (smoothAngularDiff * 1.925f * (1.f - clamp01(smoothVelocity.normalized().dot(vehForwardVector)))), 2);
+	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z() + (angularVelZ * 1.925f * (1.f - clamp01(smoothVelocity.normalized().dot(vehForwardVector)))), 2);
 	//CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z() + ((smoothAngularDiff * + (smoothVelocity.dot(smoothVehRightVector))) * 0.2f), 2);
 }
 
-void updateCam3pNfsAlgorithm()
+void updateCamSmooth3P()
 {
 	float calcHeigthOffset = heightOffset3p + 0.15f + heightIcrementCalc;
 
@@ -1952,16 +1959,13 @@ void updateCam3pNfsAlgorithm()
 	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (lookDownThreshold * 7.5f + (distIncFinal * 2.3f)) - cameraAngle3p, rotEuler.y(), rotEuler.z(), 2);
 }
 
-void updateCameraSmooth3P() {
-	//updateCam3pSmoothAlgorithm();
-	//updateCam3pNfsAlgorithm();
-	updateCamV3Alogrithm();
-}
-
 void updateCustomCamera() 
 {
-	if (currentCam == eCamType::Smooth3P) {
-		updateCameraSmooth3P();
+	if (currentCam == eCamType::Racing3P) {
+		updateCamRacing3P();
+	}
+	else if (currentCam == eCamType::Smooth3P) {
+		updateCamSmooth3P();
 	}
 	else if(currentCam == eCamType::DriverSeat1P) {
 		updateCameraDriverSeat();
