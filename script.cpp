@@ -57,6 +57,9 @@ float pivotFrontOffsetStraight = 0.f;
 float pivotFrontOffsetTurn = 0.f;
 float finalPivotFrontOffset = 0.f;
 
+float smoothAngularDiff = 0.f;
+float smoothAuxLerpFactor = 0.f;
+
 Camera customCam = NULL;
 //float fov3P = 85.f;
 //float fov1P = 90.f;
@@ -1528,14 +1531,16 @@ void updateCamRacing3P()
 
 	float angularVelZ = vehAngularVelocity.z();
 
-	float lateralSlideDist = distanceOnAxisNoAbs(prevVehPos, vehPos, vehRightVector);
+	semiDelayedVehSpeed = lerp(semiDelayedVehSpeed, vehSpeed, clamp01(max(2.5f, vehSpeed) * getDeltaTime()));
+
+	float lateralSlideDist = distanceOnAxisNoAbs(prevVehPos, vehPos, vehRightVector) * lerp(1.f, 6.f + (vehDelayedAccel1 * -1.25f), clamp01(semiDelayedVehSpeed * 0.05));
 	//lateralSlideDist *= 5.f;
 
 	prevVehPos = vehPos;
 
-	float avg1 = lerp(lateralSlideDist, /*angularVelZDrift*/ angularVelZ, 0.15f);
-	float avg2 = lerp(lateralSlideDist, angularVelZ, 0.18f);
-	float avg3 = lerp(lateralSlideDist, angularVelZ, 0.35f);
+	float avg1 = lerp(lateralSlideDist, /*angularVelZDrift*/ angularVelZ, 0.15f) * 1.1f;
+	float avg2 = lerp(lateralSlideDist, angularVelZ, 0.45f);
+	float avg3 = lerp(lateralSlideDist, angularVelZ, 0.20f) * 1.1f;
 
 	//smoothAngular1 = lerp(smoothAngular1, avg1, 3.5f * getDeltaTime());
 	//smoothAngular2 = lerp(smoothAngular2, avg2, 1.65f * getDeltaTime());
@@ -1546,15 +1551,22 @@ void updateCamRacing3P()
 	//smoothAngular3 = lerp(smoothAngular3, lateralSlideDist, 1.1f * getDeltaTime());
 
 	//float smoothAngularDiff = -(smoothAngular1 + smoothAngular2 + smoothAngular3) * 0.033f;
-	float smoothAngularDiff = -(avg1 + avg2 + avg3) * 0.0333333f;
+	float directAngularDiff = -(avg1 + avg2 + avg3) * 0.075f;
+
+	float auxLerpFactor = clamp01(abs(directAngularDiff * 8.f));
+	smoothAuxLerpFactor = lerp(smoothAuxLerpFactor, auxLerpFactor, 2.5f * getDeltaTime());
+
+	float auxLerpSpeed = lerp(8.f * getDeltaTime(), 1.f * getDeltaTime(), easeOutCubic(smoothAuxLerpFactor));
+
+	smoothAngularDiff = lerp(smoothAngularDiff, directAngularDiff, auxLerpSpeed);
+	//float smoothAngularDiff = -lateralSlideDist * 0.0333333f;
 	//smoothTurnForce3P = lerp(smoothTurnForce3P, smoothAngularDiff * 0.125f, 2.f * getDeltaTime());
 
 	finalPivotFrontOffset = lerp(pivotFrontOffsetStraight, pivotFrontOffsetTurn, clamp01(smoothAngularDiff * 0.125f));
 
-	Vector3f posCenter = vehPos + (up * calcHeightOffset3P) + (vehForwardVector * finalPivotFrontOffset);
+	showText(0, std::to_string(directAngularDiff * 8.f).c_str());
 
-	semiDelayedVehSpeed = lerp(semiDelayedVehSpeed, vehSpeed, clamp01(max(2.5f, vehSpeed) * getDeltaTime()));
-	delayedVehSpeed = lerp(delayedVehSpeed, semiDelayedVehSpeed, clamp01(max(0.5f, semiDelayedVehSpeed * 0.75f) * getDeltaTime()));
+	Vector3f posCenter = vehPos + (up * calcHeightOffset3P) + (vehForwardVector * finalPivotFrontOffset);
 
 	Quaternionf vehQuat = getEntityQuaternion(veh);
 	smoothQuat3P = slerp(smoothQuat3P, vehQuat, 5.f * getDeltaTime());
@@ -1676,7 +1688,8 @@ void updateCamRacing3P()
 	//auto compositeEuler = Vector3f(finalQuatEuler.x(), finalQuatEuler.y(), smoothQuatEuler.z());
 
 	//auto compositeQuat = QuatEuler(compositeEuler);
-	Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, clamp01((smoothIsInAir *0.5f) + 0.5f));
+	Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, max(lerp(0.25f, 0.60f, smoothAuxLerpFactor), smoothIsInAir));
+	//Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, smoothIsInAir);
 
 	if (timerResetLook > 0.001f || horizontalLooking)
 		compositeQuat = slerp(compositeQuat, lookQuat, clamp01(timerResetLook));
@@ -1712,7 +1725,7 @@ void updateCamRacing3P()
 
 	rotEuler = QuatToEuler(compositeQuat);
 
-	rotEuler[1] = angularVelZ * -0.2f;
+	rotEuler[1] = 0.f;
 
 	//smoothVehRightVector = lerp(smoothVehRightVector, vehRightVector, 8.8f * getDeltaTime());
 
