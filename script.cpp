@@ -1535,13 +1535,13 @@ void updateCamRacing3P()
 	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * (lerp(0.6f, 1.2f, smoothIsInAirNfs)));
 	float vehSpeedCoeff = 1.f - clamp01(vehSpeed * 0.01f);
 
-	float turnForce = -vehAngularVelocity.z() * vehSpeedCoeff * 0.25f;
+	//float turnForce = -vehAngularVelocity.z() * vehSpeedCoeff * 0.25f;
 
 	float angularVelZ = vehAngularVelocity.z();
 
 	semiDelayedVehSpeed = lerp(semiDelayedVehSpeed, vehSpeed, clamp01(max(2.5f, vehSpeed) * getDeltaTime()));
 
-	float lateralSlideDist = distanceOnAxisNoAbs(prevVehPos, vehPos, vehRightVector) * lerp(1.f, 6.f + (vehDelayedAccel1 * -1.25f), clamp01(semiDelayedVehSpeed * 0.05));
+	float lateralSlideDist = distanceOnAxisNoAbs(prevVehPos, vehPos, vehRightVector) * lerp(1.f, 11.5f, clamp01(semiDelayedVehSpeed * 0.15f));
 	//lateralSlideDist *= 5.f;
 
 	prevVehPos = vehPos;
@@ -1553,7 +1553,7 @@ void updateCamRacing3P()
 	float directAngularDiff = -(avg1 + avg2 + avg3) * 0.075f;
 
 	float auxLerpFactor = clamp01(abs(directAngularDiff * 6.75f));
-	smoothAuxLerpFactor = damp(smoothAuxLerpFactor, auxLerpFactor, 5.f, getDeltaTime());
+	smoothAuxLerpFactor = damp(smoothAuxLerpFactor, auxLerpFactor, 2.5f, getDeltaTime());
 
 	float auxLerpSpeed = lerp(16.f, 2.f, easeOutCubic(smoothAuxLerpFactor));
 
@@ -1563,7 +1563,7 @@ void updateCamRacing3P()
 
 	//showText(0, std::to_string(directAngularDiff * 8.f).c_str());
 
-	Vector3f posCenter = vehPos + (up * calcHeightOffset3P) + (vehForwardVector * finalPivotFrontOffset);
+	Vector3f posCenter = vehPos + (up * calcHeightOffset3P);
 
 	Quaternionf vehQuat = getEntityQuaternion(veh);
 	smoothQuat3P = slerp(smoothQuat3P, vehQuat, 5.f * getDeltaTime());
@@ -1686,20 +1686,20 @@ void updateCamRacing3P()
 	//auto compositeEuler = Vector3f(finalQuatEuler.x(), finalQuatEuler.y(), smoothQuatEuler.z());
 
 	//auto compositeQuat = QuatEuler(compositeEuler);
-	Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, max(lerp(0.275f, 0.835f, smoothAuxLerpFactor), easeOutCubic(smoothIsInAir)));
+	Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, max(lerp(0.278f, 0.836f, smoothAuxLerpFactor), easeOutCubic(smoothIsInAir)));
 	//Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, smoothIsInAir);
 
 	if (timerResetLook > 0.001f || horizontalLooking)
 		compositeQuat = slerp(compositeQuat, lookQuat, clamp01(timerResetLook));
 
-	Vector3f camPosCam = posCenter + V3CurrentTowHeightIncrement + ((compositeQuat)* back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + (airDistance - finalPivotFrontOffset) + distIncFinal)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
+	Vector3f camPosCam = posCenter + V3CurrentTowHeightIncrement + ((compositeQuat)* back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + (airDistance - finalPivotFrontOffset) + distIncFinal)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
 
 	prevCamPos = camPosCam;
 	Vector3f camPosFinal = camPosCam;
-	camPosFinal += smoothAngularDiff * 0.655f * (compositeQuat * right);
-	camPosFinal += abs(smoothAngularDiff) * 0.8f * (compositeQuat * front);
+	//camPosFinal += smoothAngularDiff * 0.655f * (compositeQuat * right);
+	//camPosFinal += abs(smoothAngularDiff) * 0.8f * (compositeQuat * front);
 
-	camPosFinal += abs(smoothAngularDiff) * lerp(0.f, 0.15f, clamp01(1.f - (vehSpeed * 0.04f))) * down;
+	//camPosFinal += abs(smoothAngularDiff) * lerp(0.f, 0.15f, clamp01(1.f - (vehSpeed * 0.04f))) * down;
 	
 	// Raycast //
 	int ray = WORLDPROBE::_START_SHAPE_TEST_RAY(posCenter.x(), posCenter.y(), posCenter.z(), camPosFinal.x(), camPosFinal.y(), camPosFinal.z(), 1, veh, 7);
