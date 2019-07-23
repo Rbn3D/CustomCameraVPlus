@@ -1,4 +1,9 @@
 
+1.7.0
+
+* Ability to set ammount of inertia force for 3rd person camera. Search for InertiaForce in the .ini file for details.
+* Other minor enhancements
+
 1.6.0
 
 * New third person camera! Racing oriented, so now you can switch between 3 cameras: 1st person, 3rd person smooth (legacy), and 3rd person racing (new)
