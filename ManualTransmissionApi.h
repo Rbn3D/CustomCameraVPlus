@@ -1,15 +1,29 @@
 #pragma once
+namespace MT {
+	extern bool Present;
+	extern const char* (*GetVersion)();
+	extern bool(*GetActive)();
+	extern void(*SetActive)(bool active);
+	extern bool(*NeutralGear)();
+	extern int(*GetShiftMode)();
+	extern void(*SetShiftMode)(int mode);
+	extern int(*GetShiftIndicator)();
 
-#include <Windows.h>
+	// AI Management
+	extern void(*AddIgnoreVehicle)(int vehicle);
+	extern void(*DelIgnoreVehicle)(int vehicle);
+	extern void(*ClearIgnoredVehicles)();
+	extern unsigned(*NumIgnoredVehicles)();
+	extern const int* (*GetIgnoredVehicles)();
+	extern int(*GetManagedVehicle)();
 
-namespace MT 
-{
-	void* CheckAddr(HMODULE lib, const char* funcName);
-	extern void InitializeMtApiIntegration();
+	// Camera
+	extern bool(*LookingLeft)();
+	extern bool(*LookingRight)();
+	extern bool(*LookingBack)();
 
-	extern bool FunctionsPresent();
-
-	extern bool MT_LookingLeft();
-	extern bool MT_LookingRight();
-	extern bool MT_LookingBack();
 }
+
+void setupCompatibility();
+
+void releaseCompatibility();

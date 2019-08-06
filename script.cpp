@@ -870,9 +870,9 @@ void ReadSettings(bool byUser)
 			updateVehicleProperties();
 			setupCurrentCamera();
 
-			if (readInputFromMt && !MT::FunctionsPresent())
+			if (readInputFromMt && !MT::Present)
 			{
-				ShowNotification("CCVPlus: Manual Transmission integration enabled, but no compatible Gears.asi found. (You need at least version 4.6.6). Looking left/right/back from steering wheel will not work.");
+				ShowNotification("CCVPlus: Manual Transmission integration was enabled, but no compatible Gears.asi found. (You need at least version 4.6.6). Looking left/right/back from steering wheel will not work.");
 			}
 		}
 			
@@ -933,7 +933,7 @@ void nextCam() {
 
 void firstInit()
 {
-	MT::InitializeMtApiIntegration();
+	setupCompatibility();
 
 	UINT_PTR address = FindPattern("\x48\x8B\xC7\xF3\x0F\x10\x0D", "xxxxxxx") - 0x1D;
 	address = address + *reinterpret_cast<int*>(address) + 4;
@@ -1566,12 +1566,12 @@ void ProccessLookLeftRightOrBackInput()
 {
 	const float rotSpeed = 9.f;
 
-	bool readFromMtApi = readInputFromMt && MT::FunctionsPresent();
+	bool readFromMtApi = readInputFromMt && MT::Present;
 
-	bool evalLeft = IsKeyDown(str2key(lookLeftKey)) || (readFromMtApi && MT::MT_LookingLeft());
-	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readFromMtApi && MT::MT_LookingRight());
+	bool evalLeft = IsKeyDown(str2key(lookLeftKey)) || (readFromMtApi && MT::LookingLeft);
+	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readFromMtApi && MT::LookingRight);
 
-	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlVehicleLookBehind) || (readFromMtApi && MT::MT_LookingBack()) || (evalLeft && evalRight);
+	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlVehicleLookBehind) || (readFromMtApi && MT::LookingBack) || (evalLeft && evalRight);
 
 	if (evalLeft && !evalRight) {
 		RelativeLookFactor += rotSpeed * getDeltaTime();
