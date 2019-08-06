@@ -1568,10 +1568,10 @@ void ProccessLookLeftRightOrBackInput()
 
 	bool readFromMtApi = readInputFromMt && MT::Present;
 
-	bool evalLeft = IsKeyDown(str2key(lookLeftKey)) || (readFromMtApi && MT::LookingLeft);
-	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readFromMtApi && MT::LookingRight);
+	bool evalLeft = IsKeyDown(str2key(lookLeftKey)) || (readFromMtApi && MT::LookingBack());
+	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readFromMtApi && MT::LookingRight());
 
-	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlVehicleLookBehind) || (readFromMtApi && MT::LookingBack) || (evalLeft && evalRight);
+	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlVehicleLookBehind) || (readFromMtApi && MT::LookingBack()) || (evalLeft && evalRight);
 
 	if (evalLeft && !evalRight) {
 		RelativeLookFactor += rotSpeed * getDeltaTime();
