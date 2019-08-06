@@ -2,12 +2,7 @@
 *  Custom Camera V Plus
 */
 #include "script.h"
-#include "utils.h"
-#include <string>
-#include <map>
 
-#include <Windows.h>
-#include <Psapi.h>
 
 float smoothIsMouseLooking = 0.f;
 float viewLock = 0.f;
@@ -87,6 +82,8 @@ bool useVariableRotSpeed3P = true;
 float RotSpeedFast3P = 4.7f;
 float RotSpeedSlow3P = 3.8f;
 float maxRotSpeedAngle3P = 90.0f;
+
+float smoothFactor = 0.f;
 
 //float variableRotLerpSpeed = 7.75f;
 
@@ -872,6 +869,11 @@ void ReadSettings(bool byUser)
 			ShowNotification("CCVPlus: Settings reloaded");
 			updateVehicleProperties();
 			setupCurrentCamera();
+
+			if (readInputFromMt && !MT::FunctionsPresent())
+			{
+				ShowNotification("CCVPlus: Manual Transmission integration enabled, but no compatible Gears.asi found. (You need at least version 4.6.6). Looking left/right/back from steering wheel will not work.");
+			}
 		}
 			
 	}
@@ -931,14 +933,11 @@ void nextCam() {
 
 void firstInit()
 {
+	MT::InitializeMtApiIntegration();
+
 	UINT_PTR address = FindPattern("\x48\x8B\xC7\xF3\x0F\x10\x0D", "xxxxxxx") - 0x1D;
 	address = address + *reinterpret_cast<int*>(address) + 4;
 	gamePlayCameraAddr = *reinterpret_cast<UINT_PTR*>(*reinterpret_cast<int*>(address + 3) + address + 7);
-
-	enum Button
-	{
-		ButtonConfirm
-	};
 
 	ReadSettings(false);
 }
@@ -1567,10 +1566,12 @@ void ProccessLookLeftRightOrBackInput()
 {
 	const float rotSpeed = 9.f;
 
-	bool evalLeft = IsKeyDown(str2key(lookLeftKey)) || (readInputFromMt && GetDecoratorBool("mt_looking_left"));
-	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readInputFromMt && GetDecoratorBool("mt_looking_right"));
+	bool readFromMtApi = readInputFromMt && MT::FunctionsPresent();
 
-	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlVehicleLookBehind) || (readInputFromMt && GetDecoratorBool("mt_looking_back")) || (evalLeft && evalRight);
+	bool evalLeft = IsKeyDown(str2key(lookLeftKey)) || (readFromMtApi && MT::MT_LookingLeft());
+	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readFromMtApi && MT::MT_LookingRight());
+
+	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlVehicleLookBehind) || (readFromMtApi && MT::MT_LookingBack()) || (evalLeft && evalRight);
 
 	if (evalLeft && !evalRight) {
 		RelativeLookFactor += rotSpeed * getDeltaTime();
@@ -1587,11 +1588,6 @@ void ProccessLookLeftRightOrBackInput()
 	}
 
 	RelativeLookFactor = clamp(RelativeLookFactor, -1.f, 1.f);
-}
-
-BOOL GetDecoratorBool(char * decoratorKey)
-{
-	return DECORATOR::DECOR_IS_REGISTERED_AS_TYPE(decoratorKey, eDecorType::DECOR_TYPE_BOOL) && DECORATOR::DECOR_EXIST_ON(veh, decoratorKey) && DECORATOR::DECOR_GET_BOOL(veh, (char *)decoratorKey);
 }
 
 void lookBehind1p()
@@ -1755,11 +1751,11 @@ void updateCamRacing3P()
 	float directAngularDiff = -(avg1 + avg2 + avg3) * 0.075f;
 
 	float auxLerpFactor = clamp01(abs(directAngularDiff * 6.75f));
-	smoothAuxLerpFactor = damp(smoothAuxLerpFactor, auxLerpFactor, 2.5f, getDeltaTime());
+	smoothAuxLerpFactor = clamp01(lerp(smoothAuxLerpFactor, auxLerpFactor, 2.5f * getDeltaTime()));
 
 	float auxLerpSpeed = lerp(16.f, 2.f, easeOutCubic(smoothAuxLerpFactor));
 
-	smoothAngularDiff = damp(smoothAngularDiff, directAngularDiff, auxLerpSpeed, getDeltaTime());
+	smoothAngularDiff = lerp(smoothAngularDiff, directAngularDiff, auxLerpSpeed * getDeltaTime());
 
 	finalPivotFrontOffset = lerp(pivotFrontOffsetStraight, pivotFrontOffsetTurn, lerp(0.0f, 2.10f, clamp01((smoothAuxLerpFactor * 2.2f) - 0.7f)));
 
@@ -1788,11 +1784,14 @@ void updateCamRacing3P()
 
 	//dirQuat3P = lookRotation(smoothVelocityDir, up);
 	dirQuat3P = lookRotation(velocityDir, up);
+
+	Vector3f vehVelocityNormalized = vehVelocity.normalized();
+
 	if(!isBike)
-		veloQuat3P = lookRotation(vehVelocity);
+		veloQuat3P = lookRotation(vehVelocityNormalized);
 	else
 	{
-		Quaternionf veloQuatAux = lookRotation(vehSpeed < 1.25f || vehVelocity.dot(vehForwardVector) <= 0.12f ? vehForwardVector : vehVelocity);
+		Quaternionf veloQuatAux = lookRotation(vehSpeed < 1.25f || vehVelocityNormalized.dot(vehForwardVector) <= 0.12f ? vehForwardVector : vehVelocityNormalized);
 		veloQuat3P = slerp(veloQuat3P, veloQuatAux, 3.f * getDeltaTime());
 	}
 
@@ -1888,7 +1887,10 @@ void updateCamRacing3P()
 	//auto compositeEuler = Vector3f(finalQuatEuler.x(), finalQuatEuler.y(), smoothQuatEuler.z());
 
 	//auto compositeQuat = QuatEuler(compositeEuler);
-	Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, max(lerp(0.278f, 0.836f, smoothAuxLerpFactor), easeOutCubic(smoothIsInAir)));
+
+	smoothFactor = damp(smoothFactor, max(lerp(0.278f, 0.836f, smoothAuxLerpFactor), easeOutCubic(smoothIsInAir)), 0.05f, getDeltaTime());
+
+	Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, smoothFactor);
 	//Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, smoothIsInAir);
 
 	if (timerResetLook > 0.001f || horizontalLooking)

@@ -8,6 +8,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ManualTransmissionApi.cpp">
+      <FileType>CppCode</FileType>
+    </ClCompile>
     <ClCompile Include="script.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
@@ -16,6 +19,7 @@
     <ClInclude Include="..\..\inc\enums.h" />
     <ClInclude Include="..\..\inc\natives.h" />
     <ClInclude Include="..\..\inc\types.h" />
+    <ClInclude Include="ManualTransmissionApi.h" />
     <ClInclude Include="script.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>

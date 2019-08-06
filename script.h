@@ -10,7 +10,11 @@
 #include "..\..\inc\types.h"
 #include "..\..\inc\enums.h"
 
-#include "..\..\inc\main.h"
+#include "utils.h"
+#include <map>
+
+#include <Windows.h>
+#include <Psapi.h>
 
 /*
  Eigen Math lib
@@ -22,6 +26,9 @@
 #include "..\..\inc\simpleini\SimpleIni.h"
 
 #include <string.h>
+
+// Manual Transmission input integration
+#include "ManualTransmissionApi.h"
 
 using namespace Eigen;
 
@@ -44,8 +51,6 @@ void ScriptMain();
 void lookBehind1p();
 
 void ProccessLookLeftRightOrBackInput();
-
-BOOL GetDecoratorBool(char * decoratorKey);
 
 Vector3f GetBonePos(Entity entity, char * boneName);
 
