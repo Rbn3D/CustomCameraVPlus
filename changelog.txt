@@ -2,6 +2,7 @@
 1.7.0
 
 * Ability to set ammount of inertia force for 3rd person camera. Search for InertiaForce in the .ini file for details.
+* Updated Manual Transmission integration (If you use Manual Transmission, make sure you update it to 4.6.6 or newer).
 * Other minor enhancements
 
 1.6.0

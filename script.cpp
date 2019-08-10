@@ -1306,7 +1306,7 @@ void updateVehicleVars()
 		//velocityQuat3P = lookRotation(smoothVelocity);
 	}
 
-	smoothIsInAir = lerp(smoothIsInAir, (ENTITY::IS_ENTITY_IN_AIR(veh) || ENTITY::IS_ENTITY_UPSIDEDOWN(veh)) ? 1.f : 0.f, 2.f * getDeltaTime());
+	smoothIsInAir = lerp(smoothIsInAir, (ENTITY::IS_ENTITY_IN_AIR(veh) || ENTITY::IS_ENTITY_UPSIDEDOWN(veh)) ? 1.f : 0.f, 12.f * getDeltaTime());
 	smoothIsInAirNfs = lerp(smoothIsInAirNfs, (ENTITY::IS_ENTITY_IN_AIR(veh)) ? 1.f : 0.f, 0.75f * getDeltaTime());
 	vehRightVector = toV3f(getRightVector(vehRot));
 	vehUpVector = vehRightVector.cross(vehForwardVector);
@@ -1888,7 +1888,7 @@ void updateCamRacing3P()
 
 	//auto compositeQuat = QuatEuler(compositeEuler);
 
-	smoothFactor = damp(smoothFactor, max(lerp(0.278f, 0.836f, smoothAuxLerpFactor), easeOutCubic(smoothIsInAir)), 0.05f, getDeltaTime());
+	smoothFactor = max(damp(smoothFactor, lerp(0.278f, 0.836f, smoothAuxLerpFactor), 0.05f, getDeltaTime()), easeOutCubic(smoothIsInAir));
 
 	Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, smoothFactor);
 	//Quaternionf compositeQuat = slerp(!isBike ? smoothQuat3P : veloQuat3P, finalQuat3P, smoothIsInAir);
