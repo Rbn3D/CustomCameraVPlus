@@ -16,7 +16,7 @@ Usage:
 * Look left by pressing B, look right by pressing N
 * Look behind by pressing C (or other key mapped to look behind)
 * Look left/right/back from steering wheel! 
-	Requires Manual Transmission Mod by @ikt (Version 4.6.0 or newer):
+	Requires Manual Transmission Mod by @ikt (Version 4.6.6 or newer):
 	https://www.gta5-mods.com/scripts/manual-transmission-ikt
 
 * Toggle mod enabled by pressing 1.

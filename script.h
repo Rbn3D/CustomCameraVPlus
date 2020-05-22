@@ -54,8 +54,6 @@ void ProccessLookLeftRightOrBackInput();
 
 Vector3f GetBonePos(Entity entity, char * boneName);
 
-void updateCam3pSmoothAlgorithm();
-
 bool LastInputMethodWasMouseAndKeyboard();
 
 void updateVehicleProperties();

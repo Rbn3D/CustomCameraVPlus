@@ -23,7 +23,6 @@ namespace MT {
 	bool(*LookingBack)() = nullptr;
 
 	HMODULE GearsModule = nullptr;
-
 }
 
 template <typename T>
@@ -69,7 +68,7 @@ void setupCompatibility() {
 
 void releaseCompatibility() {
 	if (MT::GearsModule) {
-		FreeLibrary(MT::GearsModule);
+		//FreeLibrary(MT::GearsModule); // Not needed
 		MT::Present = false;
 	}
 }
