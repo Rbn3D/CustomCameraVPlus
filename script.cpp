@@ -397,6 +397,7 @@ float delayedVehSpeed = 0.f;
 Vector3f prevCamPos = Vector3f();
 Vector3f camPosSmooth = Vector3f();
 float smoothLatDist = 0.f;
+float smoothLongDist = 0.f;
 
 //float smoothTurnForce3P = 0.f;
 float smoothAngular1 = 0.f;
@@ -1921,7 +1922,7 @@ void updateCamRacing3P()
 
 
 	// smooth out final position a little
-	camPosSmooth = lerp(camPosSmooth, camPosFinal, 27.f * getDeltaTime());
+	camPosSmooth = lerp(camPosSmooth, camPosFinal, 29.f * getDeltaTime());
 
 	//Vector3f fixLagBehind = camForward * distanceOnAxis(camPosFinal, camPosSmooth, -camForward);
 	//fixLagBehind = Vector3f(fixLagBehind.x(), fixLagBehind.y(), 0.f);
@@ -1929,10 +1930,20 @@ void updateCamRacing3P()
 
 	float latDist = distanceOnAxisNoAbs(camPosFinal, camPosSmooth, camRight);
 
-	smoothLatDist = lerp(smoothLatDist, latDist, 7.f * getDeltaTime());
+	float latFactor = clamp01(abs(latDist));
 
-	Vector3f latOffest = camRight * smoothLatDist;
-	Vector3f realSmoothPos = camPosFinal + latOffest;
+	float longMultiplier = lerp(0.25f, 1.f, latFactor);
+	float longClamp = lerp(0.37f, 1.56f, easeOutCubic(latFactor));
+
+	float longDist = distanceOnAxisNoAbs(camPosFinal, camPosSmooth, camForward) * longMultiplier;
+
+	smoothLatDist = lerp(smoothLatDist, latDist, 7.2f * getDeltaTime());
+	smoothLongDist = lerp(smoothLongDist, clamp(longDist, -longClamp, longClamp), 8.8f * getDeltaTime());
+
+	float aimFactor = 1.f - clamp01(timerResetLook);
+
+	Vector3f posOffset = (camRight * smoothLatDist * aimFactor) + (camForward * smoothLongDist * 0.605f * aimFactor);
+	Vector3f realSmoothPos = camPosFinal + posOffset;
 	
 	// Raycast //
 	int ray = WORLDPROBE::_START_SHAPE_TEST_RAY(posCenter.x(), posCenter.y(), posCenter.z(), realSmoothPos.x(), realSmoothPos.y(), realSmoothPos.z(), 1, veh, 7);
