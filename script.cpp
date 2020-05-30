@@ -95,11 +95,14 @@ float useRoadSurfaceNormal = false;
 Vector3f cachedSurfaceNormal;
 Vector3f smoothSurfaceNormal;
 
+float smoothCurveEval = 0.f;
+
 Vector3f smoothVelocity = Vector3f();
 Vector3f ultraSmoothVelocity = Vector3f();
 Quaternionf dirQuat3P = Quaternionf();
 Quaternionf veloQuat3P = Quaternionf();
 Quaternionf smoothQuat3P = Quaternionf();
+Quaternionf smootherQuat3P = Quaternionf();
 Quaternionf ultraSmoothVelocity3P = Quaternionf();
 Vector3f smoothRotSeat = Vector3f();
 Quaternionf smoothQuatSeat = Quaternionf();
@@ -352,7 +355,6 @@ std::string key2str(DWORD key) {
 }
 
 bool showDebug = false;
-UINT_PTR gamePlayCameraAddr;
 
 bool isSuitableForCam;
 
@@ -396,6 +398,9 @@ float delayedVehSpeed = 0.f;
 
 Vector3f prevCamPos = Vector3f();
 Vector3f camPosSmooth = Vector3f();
+
+float smoothLatFactor = 0.f;
+
 float smoothLatDist = 0.f;
 float smoothLongDist = 0.f;
 float smoothUpDist = 0.f;
@@ -430,6 +435,9 @@ float vehDelayedAccel2 = 0.f;
 float vehDelayedAccel3 = 0.f;
 float vehDelayedAccel4 = 0.f;
 float smoothIsGoingForwardInc = 0.f;
+
+float smoothAccelSlower = 0.f;
+float accelDiffSlow = 0.f;
 
 char * reloadKey = "F10";
 char * toggleModKey = "1";
@@ -941,37 +949,7 @@ void firstInit()
 {
 	setupCompatibility();
 
-	UINT_PTR address = FindPattern("\x48\x8B\xC7\xF3\x0F\x10\x0D", "xxxxxxx") - 0x1D;
-	address = address + *reinterpret_cast<int*>(address) + 4;
-	gamePlayCameraAddr = *reinterpret_cast<UINT_PTR*>(*reinterpret_cast<int*>(address + 3) + address + 7);
-
 	ReadSettings(false);
-}
-
-Vector3f getGameplayCameraDirection() {
-	const auto data = reinterpret_cast<const float *>(gamePlayCameraAddr + 0x200);
-	return Vector3f(data[0], data[1], data[2]);
-}
-
-Vector3f getGameplayCameraRightVector() {
-	const auto data = reinterpret_cast<const float *>(gamePlayCameraAddr + 0x1F0);
-	return Vector3f(data[0], data[1], data[2]);
-}
-
-void setGameplayCameraDirection(Vector3f dir) {
-	const auto address = (Vector3*)gamePlayCameraAddr + 0x200;
-
-	Vector3 nativeDir = toV3(dir);
-
-	*address = nativeDir;
-}
-
-Vector3f getGameplayCameraPos() {
-	//Vector3 camPos = CAM::GET_GAMEPLAY_CAM_COORD();
-
-	//return Vector3f(camPos.x, camPos.y, camPos.z);
-	const auto data = reinterpret_cast<const float *>(gamePlayCameraAddr + 0x220);
-	return Vector3f(data[0], data[1], data[2]);
 }
 
 Vector3f getCameraForwardVector(Camera cam) {
@@ -1304,6 +1282,9 @@ void updateVehicleVars()
 	vehForwardVector = toV3f(ENTITY::GET_ENTITY_FORWARD_VECTOR(veh));
 	vehSpeed = ENTITY::GET_ENTITY_SPEED(veh);
 	smoothVelocity = lerp(smoothVelocity, vehSpeed > 2.f ? vehVelocity : vehForwardVector, 7.5f * getDeltaTime());
+
+	// TODO: Refelcted velocity
+
 	ultraSmoothVelocity = lerp(ultraSmoothVelocity, vehSpeed > 2.f ? vehVelocity : vehForwardVector, 3.f * getDeltaTime());
 
 	if ((ENTITY::IS_ENTITY_IN_AIR(veh) || (ENTITY::GET_ENTITY_UPRIGHT_VALUE(veh) < 0.6f)) && smoothIsInAir < 0.001f)
@@ -1340,14 +1321,16 @@ void setupCurrentCamera() {
 
 		timerResetLook = 0.25f;
 		smoothIsMouseLooking = 1.0f;
-		lookQuat = lookRotation(getGameplayCameraDirection());
+		lookQuat = getEntityQuaternion(veh);
 		dirQuat3P = lookQuat;
 		smoothQuat3P = lookQuat;
+		smootherQuat3P = lookQuat;
 
 		prevCamPos = (vehPos + (up * calcHeightOffset3P)) + (up * (0.14f + extraAngleCamHeight)) + ((lookQuat) * back * (calcLongitudeOffset3P + currentTowLongitudeIncrement));
 		camPosSmooth = prevCamPos;
 		prevVehPos = vehPos;
 		smoothLatDist = 0.f;
+		smoothCurveEval = 0.f;
 //		smoothVehRightVector = vehRightVector;
 	}
 
@@ -1701,28 +1684,62 @@ Vector3f V3Reflect(Vector3f vector, Vector3f normal)
 	return vector - temp;
 }
 
-float CalcDistInc(Vehicle veh)
+//float CalcDistInc(Vehicle veh)
+//{
+//	float accelScale = VEHICLE::GET_VEHICLE_ACCELERATION(veh);
+//
+//	float vehDirectAccel = ((double)(vehAcceleration * accelScale)) * 1700.0;
+//
+//	vehDelayedAccel1 = lerp(vehDelayedAccel1, vehDirectAccel, 1.735f * getDeltaTime());
+//	vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.625f * getDeltaTime());
+//
+//	vehDelayedAccel3 = lerp(vehDelayedAccel3, vehDirectAccel, 0.30f * getDeltaTime());
+//	vehDelayedAccel4 = lerp(vehDelayedAccel4, vehDirectAccel, 0.08f * getDeltaTime());
+//
+//	float isGoingForwardInc = clamp(((vehSpeed - 1.f) * 0.6f) * accelScale, 0.f, 1.2f) * 0.425f;
+//	smoothIsGoingForwardInc = lerp(smoothIsGoingForwardInc, isGoingForwardInc, 0.8f * getDeltaTime());
+//
+//	float accelThreshold = ((vehDelayedAccel1 - vehDelayedAccel2) + (vehDelayedAccel3 - vehDelayedAccel4));
+//
+//	float distIncFinal = clamp(accelThreshold, -1.7f, 1.5f) + max(0.f, vehSpeed * 0.01295f) - 0.3f + smoothIsGoingForwardInc;
+//
+//	//distIncFinal *= 0.7f * InertiaForce3p;
+//
+//	return distIncFinal;
+//}
+
+float CalcSmoothAccel()
 {
-	float accelScale = VEHICLE::GET_VEHICLE_ACCELERATION(veh);
+	float vehDirectAccel = vehAcceleration * 125.f;
 
-	float vehDirectAccel = ((double)(vehAcceleration * accelScale)) * 1700.0;
+	vehDelayedAccel1 = lerp(vehDelayedAccel1, clamp(vehDirectAccel, -0.46f, 0.46f), 3.0f * getDeltaTime());
+	vehDelayedAccel2 = lerp(vehDelayedAccel2, clamp(vehDirectAccel, -0.46f, 0.46f), 2.0f * getDeltaTime());
 
-	vehDelayedAccel1 = lerp(vehDelayedAccel1, vehDirectAccel, 1.735f * getDeltaTime());
-	vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.625f * getDeltaTime());
+	float accelThreshold = vehDelayedAccel2 - vehDelayedAccel1;
 
-	vehDelayedAccel3 = lerp(vehDelayedAccel3, vehDirectAccel, 0.30f * getDeltaTime());
-	vehDelayedAccel4 = lerp(vehDelayedAccel4, vehDirectAccel, 0.08f * getDeltaTime());
+	float smoothAccel = clamp(accelThreshold, -0.50f, 0.50f)/* + max(0.f, vehSpeed * 0.01295f)*/ * (1.f - smoothIsInAir);
 
-	float isGoingForwardInc = clamp(((vehSpeed - 1.f) * 0.6f) * accelScale, 0.f, 1.2f) * 0.425f;
-	smoothIsGoingForwardInc = lerp(smoothIsGoingForwardInc, isGoingForwardInc, 0.8f * getDeltaTime());
+	//showText(1, std::to_string(smoothAccel).c_str());
+	//distIncFinal *= 0.7f * InertiaForce3p;
 
-	float accelThreshold = ((vehDelayedAccel1 - vehDelayedAccel2) + (vehDelayedAccel3 - vehDelayedAccel4));
+	return smoothAccel;
+}
 
-	float distIncFinal = clamp(accelThreshold, -1.7f, 1.5f) + max(0.f, vehSpeed * 0.01295f) - 0.3f + smoothIsGoingForwardInc;
+float CalcSmoothAccelSlow()
+{
+	float vehDirectAccel = vehAcceleration * 125.f;
 
-	distIncFinal *= 0.7f * InertiaForce3p;
+	vehDelayedAccel3 = lerp(vehDelayedAccel3, clamp(vehDirectAccel, -0.46f, 0.46f), 2.55f * getDeltaTime());
+	vehDelayedAccel4 = lerp(vehDelayedAccel4, clamp(vehDirectAccel, -0.46f, 0.46f), 1.40f * getDeltaTime());
 
-	return distIncFinal;
+	float accelThreshold = vehDelayedAccel3 - vehDelayedAccel4;
+
+	float smoothAccel = clamp(accelThreshold, -0.50f, 0.50f)/* + max(0.f, vehSpeed * 0.01295f)*/ * (1.f - smoothIsInAir);
+
+	//showText(1, std::to_string(smoothAccel).c_str());
+	//distIncFinal *= 0.7f * InertiaForce3p;
+
+	return smoothAccel;
 }
 
 void updateCamRacing3P()
@@ -1732,7 +1749,7 @@ void updateCamRacing3P()
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45f * getDeltaTime());
 	currentTowLongitudeIncrement = lerp(currentTowLongitudeIncrement, towLongitudeIncrement, 1.75f * getDeltaTime());
 
-	float distIncFinal = CalcDistInc(veh);
+	//float distIncFinal = CalcDistInc(veh);
 
 	float airDistance = lerp(0.f, 2.5f, smoothIsInAirNfs * (lerp(0.6f, 1.2f, smoothIsInAirNfs)));
 	float vehSpeedCoeff = 1.f - clamp01(vehSpeed * 0.01f);
@@ -1741,13 +1758,47 @@ void updateCamRacing3P()
 
 	Vector3f posCenter = vehPos + (up * calcHeightOffset3P);
 
-	Quaternionf vehQuat = getEntityQuaternion(veh);
-	smoothQuat3P = slerp(smoothQuat3P, vehQuat, 4.f * getDeltaTime());
+	float smoothAccel = CalcSmoothAccel();
+	float smoothAccelSlow = CalcSmoothAccelSlow();
 
-	bool isInverse = vehVelocity.dot(vehForwardVector) < 0.f;
+	float accelDiff = smoothAccelSlow - smoothAccel;
+
+	smoothAccelSlower = lerp(smoothAccelSlower, smoothAccelSlow, 3.6f * getDeltaTime());
+
+	accelDiffSlow = lerp(accelDiffSlow, accelDiff, 4.f * getDeltaTime());
+
+	Quaternionf vehQuat = getEntityQuaternion(veh);
+
+	Vector3f rotBack = smoothQuat3P * back;
+	Vector3f rawBack = -vehForwardVector;
+
+	rotBack.normalize();
+	rawBack.normalize();
+
+	float rotDiff = clamp((1.f - clamp01(rawBack.dot(rotBack))) * 40.f, 0.f, 2.35f);
+
+	float curveEval = 2.35f - (sin(rotDiff + 1.5f) + 1.f);
+	smoothCurveEval = lerp(smoothCurveEval, curveEval, 4.0f * getDeltaTime());
+
+	showText(1, std::to_string(rotDiff).c_str());
+	showText(2, std::to_string(curveEval).c_str());
+
+	showText(4, std::to_string(smoothAccelSlow).c_str());
+	showText(5, std::to_string(accelDiffSlow).c_str());
+
+	//smoothQuat3P = slerp(smoothQuat3P, vehQuat, (4.0f - (smoothAccelSlower * 0.85f)) * getDeltaTime());
+	//smoothQuat3P = slerp(smoothQuat3P, vehQuat, (3.99f - (accelDiffSlow * 0.5f)) * getDeltaTime());
+	//smoothQuat3P = slerp(smoothQuat3P, vehQuat, ((3.6f - ((smoothCurveEval - 0.35f) * 0.2f)) + clamp(smoothAccelSlow * 2.25f, -1.f, 1.f)) * getDeltaTime());
+	smoothQuat3P = slerp(smoothQuat3P, vehQuat, (3.05f + clamp(accelDiffSlow, -0.45f, 0.95f)) * getDeltaTime());
+	//smootherQuat3P = slerp(smootherQuat3P, vehQuat, 4.5385f * getDeltaTime());
+	//smootherQuat3P = slerp(smootherQuat3P, vehQuat, 3.50f * getDeltaTime());
+	//smootherQuat3P = slerp(smootherQuat3P, vehQuat, (3.825f + (curveEval)) * getDeltaTime());
+	smootherQuat3P = slerp(smootherQuat3P, vehQuat, 3.6f * getDeltaTime());
+
+	//bool isInverse = vehVelocity.dot(vehForwardVector) < 0.f;
 
 	Vector3f targetPos = vehPos + (up * calcHeightOffset3P) + ((currentTowHeightIncrement + calcHeigthOffset) * up)/* + (vehForwardVector * finalPivotFrontOffset)*/;
-	targetPos += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.5f * (clamp01(vehSpeed * 0.7f)))*/;
+	//targetPos += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.5f * (clamp01(vehSpeed * 0.7f)))*/;
 
 	Vector3f velocityDir = (targetPos + (vehForwardVector * 2.f)) - (prevCamPos + (vehForwardVector * 2.f));
 
@@ -1850,7 +1901,7 @@ void updateCamRacing3P()
 		compositeQuat = slerp(compositeQuat, lookQuat, clamp01(timerResetLook));
 
 	//Vector3f camPosCam = posCenter + V3CurrentTowHeightIncrement + ((compositeQuat)*back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + (airDistance - finalPivotFrontOffset) + distIncFinal)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
-	Vector3f camPosCam = posCenter + V3CurrentTowHeightIncrement + ((compositeQuat)* back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + (airDistance - finalPivotFrontOffset) + distIncFinal)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
+	Vector3f camPosCam = posCenter + V3CurrentTowHeightIncrement + ((compositeQuat)* back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + (airDistance - finalPivotFrontOffset) /*+ distIncFinal*/)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
 
 	prevCamPos = camPosCam;
 	Vector3f camPosFinal = camPosCam;
@@ -1863,37 +1914,46 @@ void updateCamRacing3P()
 
 	rotEuler[1] = 0.f;
 
-	float angleInc = distIncFinal < 0.f ? distIncFinal * 10.f : distIncFinal * 6.f;
+	//float angleInc = distIncFinal < 0.f ? distIncFinal * 10.f : distIncFinal * 6.f;
 
-	Vector3f realFinalRot = Vector3f(rotEuler.x() + angleInc - cameraAngle3p, rotEuler.y(), rotEuler.z());
+	Vector3f realFinalRot = Vector3f(rotEuler.x() /*+ angleInc*/ - cameraAngle3p, rotEuler.y(), rotEuler.z());
 
-	Vector3f camForward = QuatEuler(realFinalRot) * front;
-	Vector3f camRight = QuatEuler(realFinalRot) * right;
-	Vector3f camUp = QuatEuler(realFinalRot) * up;
+	Vector3f vehRotSmoothEuler = QuatToEuler(smootherQuat3P);
+
+	Vector3f camForward = QuatEuler(vehRotSmoothEuler) * front;
+	Vector3f camRight = QuatEuler(vehRotSmoothEuler) * right;
+	Vector3f camUp = QuatEuler(vehRotSmoothEuler) * up;
 
 
 	// smooth out final position a little
-	camPosSmooth = lerp(camPosSmooth, camPosFinal, 23.f * getDeltaTime());
+	camPosSmooth = lerp(camPosSmooth, camPosFinal, 22.f * getDeltaTime());
 
+	//float latDist = distanceOnAxisNoAbs(camPosFinal, camPosSmooth, camRight);
 	float latDist = distanceOnAxisNoAbs(camPosFinal, camPosSmooth, camRight);
 	float longDist = distanceOnAxisNoAbs(camPosFinal, camPosSmooth, camForward);
 	float upDist = distanceOnAxisNoAbs(camPosFinal, camPosSmooth, camUp);
 
-	float latFactor = clamp01(abs(latDist * 1.15f));
+	//float latFactor = clamp(abs(latDist * 0.75f), -0.15f, 0.85f) + 0.15f;
+	//smoothLatFactor = lerp(smoothLatFactor, latFactor, 6.5f * getDeltaTime());
 
 	float longClamp = 0.4f;
 	float backClamp = -0.24f;
 
-	float upClamp = 0.3f;
-	float downClamp = -0.3f;
+	float upClamp = 0.10f;
+	float downClamp = -0.10f;
 
-	smoothLatDist = lerp(smoothLatDist, latDist, 7.3f * getDeltaTime());
-	smoothLongDist = lerp(smoothLongDist, clamp(longDist, backClamp, longClamp), 7.3f * getDeltaTime());
-	smoothUpDist = lerp(smoothUpDist, clamp(upDist, downClamp, upClamp), 7.3f * getDeltaTime());
+	float latClamp = 0.475f;
+
+	//smoothLatDist = lerp(smoothLatDist, latDist, (7.0f - smoothLatFactor) * getDeltaTime());
+	smoothLongDist = lerp(smoothLongDist, clamp(longDist * 0.475f, backClamp, longClamp), 3.8f * getDeltaTime());
+	smoothLatDist = lerp(smoothLatDist, clamp( (latDist * 0.140f) * (1.f + ((smoothCurveEval - 0.35f) * 0.135f)), -latClamp, latClamp), ( (3.30f - ((smoothCurveEval - 0.35f) * 0.640f)) + clamp(accelDiffSlow * 0.3f, -0.25f, 0.5f) ) * getDeltaTime());
+	smoothUpDist = lerp(smoothUpDist, clamp(upDist * 0.75f, downClamp, upClamp), 6.6f * getDeltaTime());
+
+	showText(3, std::to_string(smoothLatDist).c_str());
 
 	float aimFactor = 1.f - clamp01(timerResetLook);
 
-	Vector3f posOffset = (camRight * smoothLatDist * aimFactor) + (camForward * smoothLongDist * aimFactor) + (camUp * smoothUpDist * aimFactor);
+	Vector3f posOffset = (camRight * smoothLatDist * aimFactor) + (camForward * smoothLongDist) + (camUp * -smoothUpDist * aimFactor);
 	Vector3f realSmoothPos = camPosFinal + posOffset;
 	
 	// Raycast //
