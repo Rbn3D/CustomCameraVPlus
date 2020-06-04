@@ -1773,38 +1773,18 @@ void updateCamRacing3P()
 	float speedFactor3 = clamp01(unlerp(0.f, 20.f, vehSpeed));
 
 	Vector3f veloTarget = vehForwardVector;
-	float veloForwardFactor = vehVelocity.dot(vehForwardVector);
+	double veloForwardFactor = (double)vehVelocity.dot(vehForwardVector);
 
-	float veloTargetWeight = veloForwardFactor * 0.00025f * (1.f - smootherIsInAirStep);
-	//float veloLerpFactor = unlerp(0.8f, 0.0f, clamp01(veloForwardFactor));
-
-	//Vector3f targetB = lerp(targetPos, vehPos, speedFactor2);
-	//Vector3f targetA = lerp(prevCamPos, prevVehPos, speedFactor2);
-
-	// soft limit rotation speed
-	float minMult = clamp01(0.0f);
-	float maxMult = clamp01(10.f);
-	float softLimitFactor = lerp(minMult, maxMult, easeInCubic(clamp01(unlerp(1.f, 0.95f, VeloRotDiff))));
-
-	showText(1, std::to_string(VeloRotDiff).c_str());
-	showText(2, std::to_string(softLimitFactor).c_str());
-
-	//Vector3f targetB = lerp(vehPos, (Vector3f)(targetPos + (vehForwardVector * 2.f)), softLimitFactor);
-	//Vector3f targetA = lerp((Vector3f)(prevVehPos + (PrevCamQuat * back * 0.33f)), prevVehPos, speedFactor2 * (1.f - smootherIsInAirStep));
-	//targetA = lerp(targetA, (Vector3f)(prevCamPos + (vehForwardVector * 2.f)), softLimitFactor);
+	double veloTargetWeight = veloForwardFactor * 0.0071 * (1. - (smootherIsInAirStep));
 
 	Vector3f targetB = vehPos;
-	Vector3f targetA = lerp((Vector3f)(prevVehPos + (PrevCamQuat * back * 0.33f)), prevVehPos, speedFactor2 * (1.f - smootherIsInAirStep));
+	Vector3f targetA = lerp((Vector3f)(prevVehPos + (PrevCamQuat * back * 0.50f)), prevVehPos, speedFactor2 * (1.f - smootherIsInAirStep));
 
 	Vector3f auxVelocityDir = (targetB + (veloTarget * veloTargetWeight)) - (targetA - (veloTarget * veloTargetWeight));
 
 	Vector3f airDir = (targetPos + (vehForwardVector * 2.f)) - (prevCamPos + (vehForwardVector * 2.f));
 
-	velocityDir = lerp(auxVelocityDir, airDir, max(softLimitFactor * getDeltaTime(), smootherIsInAirStep));
-
-	VeloRotDiff = prevVelocityDir.normalized().dot(velocityDir.normalized());
-
-	prevVelocityDir = velocityDir;
+	velocityDir = lerp(auxVelocityDir, airDir, max(0.1f, smootherIsInAirStep));
 
 	dirQuat3P = lookRotation(velocityDir, up);
 
@@ -1823,7 +1803,7 @@ void updateCamRacing3P()
 	//float lerpSpeedDir = lerp(0.f, 10.0f, speedFactor3);
 	
 	
-	float lerpSpeedDir = 60.f;
+	float lerpSpeedDir = 10.5f;
 
 
 	//// soft limit rotation speed
@@ -1837,8 +1817,8 @@ void updateCamRacing3P()
 	//showText(2, std::to_string(softLimitMult).c_str());
 	//showText(3, std::to_string(lerpSpeedDir * softLimitMult).c_str());
 
-	//smoothVeloDir = lerp(smoothVeloDir, velocityDir, clamp01((lerpSpeedDir/* * softLimitMult*/) * getDeltaTime()));
-	smoothVeloDir = velocityDir;
+	smoothVeloDir = lerp(smoothVeloDir, velocityDir, clamp01((lerpSpeedDir/* * softLimitMult*/) * getDeltaTime()));
+	//smoothVeloDir = velocityDir;
 
 	//Vector3f finalDir = lerp(smoothVeloDir, smoothVeloEdit, speedFactor3 * 0.5f * (1.f - smootherIsInAirStep));
 	Vector3f finalDir = smoothVeloDir;
