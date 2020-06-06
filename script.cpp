@@ -134,9 +134,11 @@ Vector3d back(0.0, -1.0, 0.0);
 Vector3d front(0.0, 1.0, 0.0);
 Vector3d right(1.0, 0.0, 0.0);
 
-Ewma smDirX(0.0125);
-Ewma smDirY(0.0125);
-Ewma smDirZ(0.0125);
+Ewma smDirX(0.011);
+Ewma smDirY(0.011);
+Ewma smDirZ(0.011);
+
+Ewma smRawMult(0.0015);
 
 //Ewma smPosX(0.0175);
 //Ewma smPosY(0.0175);
@@ -696,6 +698,10 @@ Vector3d toV3f(const Vector3 &vec) {
 	return Vector3d((double)vec.x, (double)vec.y, (double)vec.z);
 }
 
+std::string V3ToStr(const Vector3d& vec) {
+	return "(" + std::to_string(vec.x()) + ", " + std::to_string(vec.y()) + ", " + std::to_string(vec.z()) + ")";
+}
+
 Vector3 toV3(Vector3d vec) {
 	Vector3 ret;
 	ret.x = (float)vec.x();
@@ -900,7 +906,7 @@ void showText(double x, double y, double scale, std::string text, int font, cons
 }
 
 void showText(int index, std::string text) {
-	showText(0.03, 0.03 * (double)index, 0.3, (char*)text.c_str(), 0, solidWhite, true);
+	showText(0.02, 0.02 * (double)index, 0.225, (char*)text.c_str(), 0, solidWhite, true);
 }
 
 double getVehicleAcceleration() {
@@ -1726,6 +1732,18 @@ double CalcSmoothAccelSlow()
 	return smoothAccel;
 }
 
+Vector3d buildMixedDir(Vector3d vehForwardVector, Vector3d rawDir)
+{
+	//double mag = rawDir.norm();
+
+	Vector3d dirN = rawDir.normalized();
+	Vector3d forwN = vehForwardVector.normalized();
+
+	forwN[2] = dirN.z();
+
+	return forwN.normalized();
+}
+
 void updateCamRacing3P()
 {
 	double calcHeigthOffset = heightOffset3p + 0.15 + heightIcrementCalc;
@@ -1739,25 +1757,45 @@ void updateCamRacing3P()
 
 	Vector3d targetPos = vehPos + ((calcHeightOffset3P + currentTowHeightIncrement + calcHeigthOffset) * up);
 
-	Vector3d rawDir = (targetPos - prevCamPos) * getDeltaTime() * 80. * 0.8; // higher values "relax" rotation speed
+	Vector3d rawDir = (targetPos - prevCamPos) * getDeltaTime() * 65.; // higher values "relax" rotation speed
 
-	float spinFactor = 1. - abs(rawDir.normalized().dot(vehForwardVector));
+	Vector3d veloTarget = buildMixedDir(vehForwardVector, (vehPos - prevVehPos));
 
-	Vector3d veloTarget = vehForwardVector;
-	double veloForwardFactor = (double)vehVelocity.dot(vehForwardVector);
+	float aux1 = abs(rawDir.normalized().dot(vehForwardVector));
 
+	//// spinFactor deadzone
+	//aux1 = lerp(0., 0.98, aux1);
+	float spinFactor = /* 0.98 - */ aux1;
 
-	double veloTargetWeight = veloForwardFactor * 0.00375 * (1. - (smootherIsInAirStep))/* * spinFactor*/; // higher values increases influence on forward vector, when it's aligned to velocity (multiplier is usually small [around 0.00X])
+	Vector3d normVelo = vehVelocity.normalized();
+	if (vehSpeed < 0.25f)
+		normVelo = vehForwardVector;
 
-	float rawMult = lerp(1., 0.5, spinFactor);
+	//double veloForwardFactor = (double)vehVelocity.dot(vehForwardVector);
+	double veloForwardFactor = (double)normVelo.dot(vehForwardVector);
 
-	showText(2, "spinFactor      : " + std::to_string(spinFactor));
+	double veloTargetWeight = veloForwardFactor * 0.0023 * (1. - (smootherIsInAirStep))/* * spinFactor*/; // higher values increases influence on forward vector, when it's aligned to velocity (multiplier is usually small [around 0.00X])
+
+	float speedMult = clamp01(unlerp(0.f, 5.0f, vehSpeed));
+
+	float rawMult = lerp(0.5, 1., spinFactor);
+	float forwMult = lerp(1., 1.5, spinFactor) * speedMult;
+
+	//rawMult = smRawMult.filter(rawMult, getDeltaTime());
+
+	showText(2, "spinFactor: " + std::to_string(spinFactor));
 	showText(3, "rawMult: " + std::to_string(rawMult));
+	showText(4, "speedMult: " + std::to_string(speedMult));
+
+	//showText(5, "forwO: "  + V3ToStr(vehForwardVector));
+	//showText(6, "norm(): " + std::to_string(vehForwardVector.norm()));
+	//showText(7, "forwM: "  + V3ToStr(veloTarget));
+	//showText(8, "norm(): " + std::to_string(veloTarget.norm()));
 
 	Vector3d targetB = vehPos;
 	Vector3d targetA = prevVehPos + (-rawDir * rawMult);
 
-	Vector3d auxDir = (targetB + (veloTarget * veloTargetWeight)) - (targetA - (veloTarget * veloTargetWeight));
+	Vector3d auxDir = (targetB + (veloTarget * veloTargetWeight * forwMult)) - (targetA - (veloTarget * veloTargetWeight * forwMult));
 
 	Vector3d filteredVelocityDir = Vector3d
 	(
