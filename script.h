@@ -16,6 +16,12 @@
 #include <Windows.h>
 #include <Psapi.h>
 
+#ifndef M_PI
+	#define M_PI 3.14159265358979323846
+#endif 
+
+#include "..\..\inc\EWMA\Ewma.h"
+
 /*
  Eigen Math lib
 */
@@ -32,19 +38,15 @@
 
 using namespace Eigen;
 
-#ifndef M_PI
-    #define M_PI 3.14159265358979323846
-#endif 
-
 void DisableCustomCamera();
 
-float getVehicleLongitude(Vehicle vehicle);
+double getVehicleLongitude(Vehicle vehicle);
 
-float getVehicleLongitudeFromCenterBack(Vehicle vehicle);
+double getVehicleLongitudeFromCenterBack(Vehicle vehicle);
 
-float getVehicleHeight(Vehicle vehicle);
+double getVehicleHeight(Vehicle vehicle);
 
-float getVehicleHeightFromCenterUp(Vehicle vehicle);
+double getVehicleHeightFromCenterUp(Vehicle vehicle);
 
 void ScriptMain();
 
@@ -52,7 +54,7 @@ void lookBehind1p();
 
 void ProccessLookLeftRightOrBackInput();
 
-Vector3f GetBonePos(Entity entity, char * boneName);
+Vector3d GetBonePos(Entity entity, char * boneName);
 
 bool LastInputMethodWasMouseAndKeyboard();
 
@@ -60,15 +62,13 @@ void updateVehicleProperties();
 
 void setupCurrentCamera();
 
-void setGameplayCamRelativeRotation(float heading);
+void setGameplayCamRelativeRotation(double heading);
 
 void ShowNotification(char * msg);
 
 void ReadSettings(bool notify);
 
-void setGameplayCameraDirection(Vector3f dir);
-
-Vector3f getCameraForwardVector(Camera cam);
+Vector3d getCameraForwardVector(Camera cam);
 
 enum eDecorType {
 	DECOR_TYPE_FLOAT = 1,
@@ -488,4 +488,4 @@ const char* const vehicleBones[] =
 	"neon_b"
 };
 
-Quaternionf QuatEuler(Eigen::Vector3f &camVec);
+Quaterniond QuatEuler(Eigen::Vector3d &camVec);
