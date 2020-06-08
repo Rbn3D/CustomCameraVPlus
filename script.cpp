@@ -105,13 +105,14 @@ Vector3d ultraSmoothVelocity = Vector3d();
 Quaterniond dirQuat3P = Quaterniond();
 Quaterniond veloQuat3P = Quaterniond();
 Quaterniond veloCompQuat3P = Quaterniond();
-Quaterniond veloRotQuat3P = Quaterniond();
 Quaterniond smoothQuat3P = Quaterniond();
-//Quaterniond smootherQuat3P = Quaterniond();
 Quaterniond ultraSmoothVelocity3P = Quaterniond();
 Vector3d smoothRotSeat = Vector3d();
 Quaterniond smoothQuatSeat = Quaterniond();
 Quaterniond PrevCamQuat = Quaterniond();
+
+Quaterniond freeLookQuat = Quaterniond();
+
 double smoothIsInAir = 0.;
 double smootherIsInAir = 0.;
 double smootherIsInAirStep = 0.;
@@ -120,6 +121,8 @@ double maxHighSpeed = 130.;
 double maxHighSpeedDistanceIncrement = 1.45;
 double accelerationCamDistanceMultiplier = 1.45;
 Vector3d playerVehOffset;
+
+double freeLookAtPreviousFrame = false;
 
 Vector3d velocityDir = Vector3d();
 Vector3d prevVelocityDir = Vector3d();
@@ -134,15 +137,17 @@ Vector3d back(0.0, -1.0, 0.0);
 Vector3d front(0.0, 1.0, 0.0);
 Vector3d right(1.0, 0.0, 0.0);
 
-Ewma smDirX(0.011);
-Ewma smDirY(0.011);
-Ewma smDirZ(0.011);
+Ewma forwInfX(0.01);
+Ewma forwInfY(0.01);
+Ewma forwInfZ(0.01);
 
-Ewma smRawMult(0.0015);
+Ewma smDirX(0.01);
+Ewma smDirY(0.01);
+Ewma smDirZ(0.01);
 
-//Ewma smPosX(0.0175);
-//Ewma smPosY(0.0175);
-//Ewma smPosZ(0.0175);
+Ewma smPosX(0.01);
+Ewma smPosY(0.01);
+Ewma smPosZ(0.01);
 
 Vector2i lastMouseCoords;
 double mouseMoveCountdown = 0.;
@@ -151,6 +156,7 @@ bool isAiming = false;
 double smoothIsAiming = 0.;
 
 bool customCamEnabled = true;
+float timeInVehicle = 0.f;
 
 enum eCamType {
 	DriverSeat1P = 0,
@@ -435,7 +441,10 @@ double smoothAngular3 = 0.;
 
 bool isLookingBack = false;
 
-double timerResetLook = 0.;
+double fixedLookTimer = 0.;
+double freeLookTimer = 0.;
+double delayFreeLookTimer = 0.;
+
 Quaterniond lookQuat;
 
 double mouseDeltaX = 0.;
@@ -603,10 +612,6 @@ Vector2d readLookAroundInput()
 		mx *= 0.2;
 		my *= 0.2;
 
-		//showText(1, std::to_string(mx).c_str());
-		//showText(2, std::to_string(my).c_str());
-
-
 		// apply deadzone
 		Vector2d stickInput = Vector2d(mx, my);
 		if (stickInput.norm() < deadzone)
@@ -753,16 +758,10 @@ void updateMouseState()
 	double x = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight);
 	double y = CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown);
 
-	if (
-		(fabs(x) > 0.005)
+	hasInputThisFrame = 
+		(abs(x) > 0.005)
 		||
-		(fabs(y) > 0.005)
-	   )
-	{
-		hasInputThisFrame = true;
-	}
-	else
-		hasInputThisFrame = false;
+		(abs(y) > 0.005);
 }
 
 // Projects a vector onto another vector.
@@ -1317,7 +1316,8 @@ void setupCurrentCamera() {
 		CAM::SET_CAM_FOV(customCam, fov3P);
 		viewLock = 0.;
 
-		timerResetLook = 0.25;
+		freeLookTimer = 0.0;
+		fixedLookTimer = 0.0;
 		smoothIsMouseLooking = 1.0;
 		lookQuat = getEntityQuaternion(veh);
 		dirQuat3P = lookQuat;
@@ -1455,11 +1455,11 @@ void updateCameraDriverSeat() {
 
 		if (isAiming || hasInputThisFrame)
 		{
-			if (timerResetLook < 0.00001)
+			if (freeLookTimer < 0.00001)
 			{
 				lookQuat = finalQ;
 			}
-			timerResetLook = 2.;
+			freeLookTimer = 2.;
 
 			Vector2d lookXY = readLookAroundInput();
 			Vector3d vecLook = Vector3d(lookXY.y(), 0., lookXY.x());
@@ -1472,9 +1472,9 @@ void updateCameraDriverSeat() {
 			lookQuat = QuatEuler(Vector3d(rx, 0., resultEuler[2]));
 		}
 
-		timerResetLook = clamp(timerResetLook - getDeltaTime(), 0., 2.);
+		freeLookTimer = clamp(freeLookTimer - getDeltaTime(), 0., 2.);
 
-		finalQ = slerp(finalQ, lookQuat, clamp01(timerResetLook));
+		finalQ = slerp(finalQ, lookQuat, clamp01(freeLookTimer));
 
 		SET_CAM_QUATERNION(customCam, finalQ);
 	}
@@ -1504,11 +1504,11 @@ void updateCameraDriverSeat() {
 
 			if (isAiming || hasInputThisFrame)
 			{
-				if (timerResetLook < 0.00001)
+				if (freeLookTimer < 0.00001)
 				{
 					lookQuat = finalQ;
 				}
-				timerResetLook = 2.;
+				freeLookTimer = 2.;
 
 				double mx = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight)) * -5.;
 				double my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * (LastInputMethodWasMouseAndKeyboard ? -5. : 5.);
@@ -1529,9 +1529,9 @@ void updateCameraDriverSeat() {
 				lookQuat = QuatEuler(Vector3d(rx, 0., resultEuler[2]));
 			}
 
-			timerResetLook = clamp(timerResetLook - getDeltaTime(), 0., 2.);
+			freeLookTimer = clamp(freeLookTimer - getDeltaTime(), 0., 2.);
 
-			finalQ = slerp(finalQ, lookQuat, clamp01(timerResetLook));
+			finalQ = slerp(finalQ, lookQuat, clamp01(freeLookTimer));
 
 			SET_CAM_QUATERNION(customCam, finalQ);
 	}
@@ -1551,28 +1551,19 @@ void updateCameraDriverSeat() {
 
 void ProccessLookLeftRightOrBackInput()
 {
-	const double rotSpeed = 9.;
-
 	bool readFromMtApi = readInputFromMt && MT::Present;
 
 	bool evalLeft = IsKeyDown(str2key(lookLeftKey)) || (readFromMtApi && MT::LookingBack());
 	bool evalRight = IsKeyDown(str2key(lookRightKey)) || (readFromMtApi && MT::LookingRight());
 
-	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlVehicleLookBehind) || (readFromMtApi && MT::LookingBack()) || (evalLeft && evalRight);
+	isLookingBack = CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || (readFromMtApi && MT::LookingBack()) || (evalLeft && evalRight);
 
-	if (evalLeft && !evalRight) {
-		RelativeLookFactor += rotSpeed * getDeltaTime();
-	}
-	else if (evalRight || isLookingBack) {
-		RelativeLookFactor -= rotSpeed * getDeltaTime();
-	}
+	if (evalLeft)
+		RelativeLookFactor = -1;
+	else if (evalRight)
+		RelativeLookFactor = 1;
 	else
-	{
-		if (RelativeLookFactor > 0.)
-			RelativeLookFactor = clamp01(RelativeLookFactor - rotSpeed * getDeltaTime());
-		else
-			RelativeLookFactor = clamp(RelativeLookFactor + rotSpeed * getDeltaTime(), -1., 0.);
-	}
+		RelativeLookFactor = 0;
 
 	RelativeLookFactor = clamp(RelativeLookFactor, -1., 1.);
 }
@@ -1709,9 +1700,6 @@ double CalcSmoothAccel()
 
 	double smoothAccel = clamp(accelThreshold, -0.50, 0.50)/* + max(0., vehSpeed * 0.01295)*/ * (1. - smoothIsInAir);
 
-	//showText(1, std::to_string(smoothAccel).c_str());
-	//distIncFinal *= 0.7 * InertiaForce3p;
-
 	return smoothAccel;
 }
 
@@ -1726,20 +1714,17 @@ double CalcSmoothAccelSlow()
 
 	double smoothAccel = clamp(accelThreshold, -0.50, 0.50)/* + max(0., vehSpeed * 0.01295)*/ * (1. - smoothIsInAir);
 
-	//showText(1, std::to_string(smoothAccel).c_str());
-	//distIncFinal *= 0.7 * InertiaForce3p;
-
 	return smoothAccel;
 }
 
-Vector3d buildMixedDir(Vector3d vehForwardVector, Vector3d rawDir)
+Vector3d buildMixedDir(Vector3d vehForwardVector, Vector3d dirV)
 {
 	//double mag = rawDir.norm();
 
-	Vector3d dirN = rawDir.normalized();
+	Vector3d dirN = dirV.normalized();
 	Vector3d forwN = vehForwardVector.normalized();
 
-	forwN[2] = dirN.z();
+	//forwN[2] = dirN.z();
 
 	return forwN.normalized();
 }
@@ -1747,55 +1732,48 @@ Vector3d buildMixedDir(Vector3d vehForwardVector, Vector3d rawDir)
 void updateCamRacing3P()
 {
 	double calcHeigthOffset = heightOffset3p + 0.15 + heightIcrementCalc;
+	double aimHeightIncrement = lerp(0., 0.35, smoothIsAiming);
 
-	showText(1, "FPS: " + std::to_string(1.f / GAMEPLAY::GET_FRAME_TIME()));
+	// showText(1, "FPS: " + std::to_string(1.f / GAMEPLAY::GET_FRAME_TIME()));
 
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45 * getDeltaTime());
 	currentTowLongitudeIncrement = lerp(currentTowLongitudeIncrement, towLongitudeIncrement, 1.75 * getDeltaTime());
 
 	double airDistance = lerp(0., 2.5, smoothIsInAirNfs * (lerp(0.6, 1.2, smoothIsInAirNfs)));
+	float speedMult = clamp01(unlerp(0.f, 5.0f, vehSpeed));
 
-	Vector3d targetPos = vehPos + ((calcHeightOffset3P + currentTowHeightIncrement + calcHeigthOffset) * up);
+	Vector3d targetPos = vehPos + ((calcHeightOffset3P + currentTowHeightIncrement + calcHeigthOffset + aimHeightIncrement) * up);
 
-	Vector3d rawDir = (targetPos - prevCamPos) * getDeltaTime() * 65.; // higher values "relax" rotation speed
+	Vector3d rawDir = (targetPos - prevCamPos) * getDeltaTime() * 98.; // higher values "relax" rotation speed
 
-	Vector3d veloTarget = buildMixedDir(vehForwardVector, (vehPos - prevVehPos));
-
-	float aux1 = abs(rawDir.normalized().dot(vehForwardVector));
-
-	//// spinFactor deadzone
-	//aux1 = lerp(0., 0.98, aux1);
-	float spinFactor = /* 0.98 - */ aux1;
+	Vector3d veloTarget = buildMixedDir(vehForwardVector, (vehPos - (prevVehPos - (rawDir * 0.075 * speedMult))));
 
 	Vector3d normVelo = vehVelocity.normalized();
 	if (vehSpeed < 0.25f)
 		normVelo = vehForwardVector;
 
-	//double veloForwardFactor = (double)vehVelocity.dot(vehForwardVector);
-	double veloForwardFactor = (double)normVelo.dot(vehForwardVector);
+	double veloForwardFactor = (double)normVelo.dot(veloTarget);
 
-	double veloTargetWeight = veloForwardFactor * 0.0023 * (1. - (smootherIsInAirStep))/* * spinFactor*/; // higher values increases influence on forward vector, when it's aligned to velocity (multiplier is usually small [around 0.00X])
+	double accel = VEHICLE::GET_VEHICLE_ACCELERATION(veh);
 
-	float speedMult = clamp01(unlerp(0.f, 5.0f, vehSpeed));
+	double auxMult = lerp(0.007, 0.0028, unlerp(0.27, 0.75, accel));
 
-	float rawMult = lerp(0.5, 1., spinFactor);
-	float forwMult = lerp(1., 1.5, spinFactor) * speedMult;
 
-	//rawMult = smRawMult.filter(rawMult, getDeltaTime());
-
-	showText(2, "spinFactor: " + std::to_string(spinFactor));
-	showText(3, "rawMult: " + std::to_string(rawMult));
-	showText(4, "speedMult: " + std::to_string(speedMult));
-
-	//showText(5, "forwO: "  + V3ToStr(vehForwardVector));
-	//showText(6, "norm(): " + std::to_string(vehForwardVector.norm()));
-	//showText(7, "forwM: "  + V3ToStr(veloTarget));
-	//showText(8, "norm(): " + std::to_string(veloTarget.norm()));
+	double veloTargetWeight = veloForwardFactor * auxMult * (1. - (smootherIsInAirStep)); // higher values increases influence on forward vector, when it's aligned to velocity (multiplier is usually small [around 0.00X])
 
 	Vector3d targetB = vehPos;
-	Vector3d targetA = prevVehPos + (-rawDir * rawMult);
+	Vector3d targetA = prevVehPos + (-rawDir);
 
-	Vector3d auxDir = (targetB + (veloTarget * veloTargetWeight * forwMult)) - (targetA - (veloTarget * veloTargetWeight * forwMult));
+	Vector3d forwardInfluence = veloTarget * veloTargetWeight;
+
+	Vector3d filteredForwInfluence = Vector3d
+	(
+		(double)forwInfX.filter(forwardInfluence.x(), getDeltaTime()),
+		(double)forwInfY.filter(forwardInfluence.y(), getDeltaTime()),
+		(double)forwInfZ.filter(forwardInfluence.z(), getDeltaTime())
+	);
+
+	Vector3d auxDir = (targetB + (filteredForwInfluence * speedMult)) - (targetA - (filteredForwInfluence * speedMult));
 
 	Vector3d filteredVelocityDir = Vector3d
 	(
@@ -1810,82 +1788,118 @@ void updateCamRacing3P()
 
 	dirQuat3P = lookRotation(velocityDir, up);
 
-	//Vector3d vehVelocityNormalized = vehVelocity.normalized();
-
-	//Vector3d VeloEdit = vehVelocityNormalized;
-
-	//if (vehSpeed < 0.25)
-	//	VeloEdit = vehForwardVector;
-	//else if (vehVelocityNormalized.dot(vehForwardVector) <= 0.025)
-	//	VeloEdit = -VectorReflect(-vehVelocityNormalized, -vehForwardVector);
-
 	veloCompQuat3P = lookRotation(velocityDir);
-
-	veloRotQuat3P = veloCompQuat3P;
-
-	bool lookBehind = false;
-	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || isLookingBack)
-		lookBehind = true;
 
 	double lookHorizontalAngle = 0.;
 
-	if (!lookBehind) {
+	if (isLookingBack) {
+		lookHorizontalAngle = 180.;
+	}
+	else if(abs(RelativeLookFactor) > 0.01)
+	{
 		lookHorizontalAngle = RelativeLookFactor < 0. ?
-			lerp(0., -LookLeftAngle3p, -RelativeLookFactor)
+			lerp(0., -LookLeftAngle3p, abs(RelativeLookFactor))
 			:
 			lerp(0., LookRightAngle3p, RelativeLookFactor)
 			;
 	}
+
+	bool fixedLookAt = isLookingBack || !AreFloatsSimilar(0., RelativeLookFactor);
+	bool freeLookAt = isAiming || hasInputThisFrame;
+	bool freeLookAtDelay = freeLookAt || delayFreeLookTimer > 0.001;
+	bool anyLookAt = fixedLookAt || freeLookAt;
+
+	float mixedLookTimer = clamp01(max(fixedLookTimer, max(freeLookTimer, delayFreeLookTimer > 0.01 ? 1. : 0.)));
+
+
+	Quaterniond lookAtQuat;
+	double aimUpIncrement = 0.;
+
+	if (fixedLookAt)
+	{
+		fixedLookTimer = 1.f;//clamp(fixedLookTimer + getDeltaTime() * 2., 0, 1);
+
+		//if (fixedLookTimer < 0.05)
+		//{
+		//	smoothQuat3P = getEntityQuaternion(veh);
+		//}
+	}
+	else if (freeLookAt)
+	{
+		if (!freeLookAtPreviousFrame)
+		{
+			freeLookQuat = veloCompQuat3P;
+		}
+
+		freeLookAtPreviousFrame = true;
+
+		freeLookTimer = 1.f;//clamp(freeLookTimer + getDeltaTime() * 2., 0, 2);
+		delayFreeLookTimer = 1.25;
+	}
 	else
 	{
-		lookHorizontalAngle = 180.;
+		fixedLookTimer = 0.; //clamp(fixedLookTimer - getDeltaTime() * 2., 0, 1);
+		freeLookTimer = 0.; // clamp(freeLookTimer - getDeltaTime() * 2., 0, 2);
+		delayFreeLookTimer = clamp(delayFreeLookTimer - getDeltaTime() * 2., 0, 1.25);
 	}
 
-	//Quaterniond AirQuat3P = dirQuat3P;
+	if (!freeLookAt)
+	{
+		freeLookAtPreviousFrame = false;
+	}
 
-	bool horizontalLooking = !AreFloatsSimilar(0., lookHorizontalAngle);
+	if (fixedLookAt)
+	{
+		float positiveAngle = lookHorizontalAngle;
 
-	//if (isAiming || hasInputThisFrame || horizontalLooking)
-	//{
-	//	if (timerResetLook <= 0.00001)
-	//	{
-	//		lookQuat = AirQuat3P;
-	//	}
-	//	timerResetLook = 2.;
+		if (positiveAngle < 0.)
+			positiveAngle += 360.;
 
-	//	Vector2d inputXY = readLookAroundInput();
-	//	Vector3d vecLook = Vector3d(inputXY.y(), 0., inputXY.x());
+		double leftRightRad = positiveAngle * DEG_TO_RAD;
 
-	//	Quaterniond result = lookQuat * QuatEuler(vecLook);
-	//	Vector3d resultEuler = QuatToEuler(result);
+		double roll = 0, pitch = 0, yaw = leftRightRad;
+		Quaterniond qLookLeftRight;
+		qLookLeftRight = AngleAxisd(roll, Vector3d::UnitX())
+			* AngleAxisd(pitch, Vector3d::UnitY())
+			* AngleAxisd(yaw, Vector3d::UnitZ());
 
-	//	double rx = clamp(resultEuler[0], -62., 40.);
+		smoothQuat3P = getEntityQuaternion(veh);
+		lookAtQuat = smoothQuat3P * qLookLeftRight;
 
-	//	lookQuat = QuatEuler(Vector3d(rx, 0., resultEuler[2]));
-	//}
+		//smoothQuat3P = slerp(smoothQuat3P, getEntityQuaternion(veh), 25. * getDeltaTime());
+	}
+	else if (freeLookAt)
+	{
+		double mx = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookLeftRight)) * -1.;
+		double my = (CONTROLS::GET_CONTROL_NORMAL(2, eControl::ControlLookUpDown)) * -1.;
 
-	//if (horizontalLooking)
-	//{
-	//	double leftRightRad = lookHorizontalAngle * DEG_TO_RAD;
+		double inputMult = LastInputMethodWasMouseAndKeyboard() ? 12 : 3;
+		inputMult *= lerp(1., 0.75f, smoothIsAiming);
 
-	//	double roll = 0., pitch = 0., yaw = leftRightRad;
-	//	Quaterniond qLookLeftRight;
-	//	qLookLeftRight = AngleAxisd(roll, Vector3d::UnitX())
-	//		* AngleAxisd(pitch, Vector3d::UnitY())
-	//		* AngleAxisd(yaw, Vector3d::UnitZ());
+		mx *= inputMult;
+		my *= inputMult;
 
-	//	//lookQuat = smoothQuat3P * qLookLeftRight;
-	//	lookQuat = veloCompQuat3P * qLookLeftRight;
-	//}
+		Vector3d vecLook = Vector3d(my, 0., mx);
+		Quaterniond lookResult = freeLookQuat * QuatEuler(vecLook);
 
-	//bool switchBack = false;
+		Vector3d resultEuler = QuatToEuler(lookResult);
 
-	//double factorLook = clamp01(timerResetLook + abs(RelativeLookFactor) + (lookBehind ? 1. : 0.));
+		double rx = clamp(resultEuler[0], -62., 40.);
 
-	//timerResetLook = clamp(timerResetLook - getDeltaTime(), 0., 2.);
+		double auxF = clamp01(unlerp(10., 30., rx));
+		aimUpIncrement = lerp(0., 0.80, auxF) * lerp(0.4, 1.0, smoothIsAiming);
 
-	if (smoothIsAiming > 0.001) {
-		double currentFov = lerp(fov3P, fov3PAiming, smoothIsAiming);
+		lookResult = QuatEuler(Vector3d(rx, 0., resultEuler[2]));
+
+		freeLookQuat = lookResult;
+
+		lookAtQuat = freeLookQuat;
+	}
+
+	double currentFov = lerp(fov3P, fov3PAiming, smoothIsAiming);
+
+	if (smoothIsAiming > 0.001 || currentFov != fov3P) 
+	{	
 		CAM::SET_CAM_FOV(customCam, currentFov);
 	}
 
@@ -1893,24 +1907,32 @@ void updateCamRacing3P()
 		UI::SHOW_HUD_COMPONENT_THIS_FRAME(eHudComponent::HudComponentReticle);
 	}
 
-	double aimHeightIncrement = lerp(0., 0.35, smoothIsAiming);
-	//double pivotInfluenceLook = lerp(finalPivotFrontOffset, -0.2, clamp01(abs(lookHorizontalAngle * 0.00277))) * 1. - smootherIsInAirStep;
+	if (freeLookAtDelay)
+		veloCompQuat3P = slerp(veloCompQuat3P, lookAtQuat, mixedLookTimer);
 
-	//Quaterniond compositeQuat = slerp(veloCompQuat3P, AirQuat3P, smootherIsInAirStep);
-
-	//if (timerResetLook > 0.001 || horizontalLooking)
-	//	compositeQuat = slerp(compositeQuat, lookQuat, clamp01(timerResetLook));
 
 	Vector3d posCenter = vehPos + (up * calcHeightOffset3P);
 	Vector3d V3CurrentTowHeightIncrement = up * currentTowHeightIncrement;
+
+	Vector3d smoothPosCenter = Vector3d
+	(
+		(double)smPosX.filter(posCenter.x(), getDeltaTime()),
+		(double)smPosY.filter(posCenter.y(), getDeltaTime()),
+		(double)smPosZ.filter(posCenter.z(), getDeltaTime())
+	);
 	
-	Vector3d camPosCam = posCenter + V3CurrentTowHeightIncrement + ((veloCompQuat3P)* back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + (airDistance - finalPivotFrontOffset) /*+ distIncFinal*/)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
+	Vector3d camPosCam = smoothPosCenter + V3CurrentTowHeightIncrement + ((veloCompQuat3P) * back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + (airDistance - finalPivotFrontOffset) /*+ distIncFinal*/)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
 
 	prevCamPos = camPosCam;
-	Vector3d camPosFinal = camPosCam;
-
-	 // calc rot
 	PrevCamQuat = veloCompQuat3P;
+
+	if (!freeLookAt && fixedLookAt)
+	{
+		veloCompQuat3P = slerp(veloCompQuat3P, lookAtQuat, mixedLookTimer);
+		camPosCam = smoothPosCenter + V3CurrentTowHeightIncrement + ((veloCompQuat3P)*back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + (airDistance - finalPivotFrontOffset) /*+ distIncFinal*/)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
+	}
+
+	Vector3d camPosFinal = camPosCam + (aimUpIncrement * up);
 
 	Vector3d rotEuler = QuatToEuler(veloCompQuat3P);
 	rotEuler[1] = 0.;
@@ -2234,12 +2256,13 @@ void update()
 	updateMouseState();
 	smoothIsMouseLooking = lerp(smoothIsMouseLooking, isMouseLooking() ? 1. : 0., 8. * SYSTEM::TIMESTEP());
 
-	isAiming = PLAYER::IS_PLAYER_FREE_AIMING(player);
+	isAiming = timeInVehicle > 0.4f && PLAYER::IS_PLAYER_FREE_AIMING(player);
 	smoothIsAiming = lerp(smoothIsAiming, isAiming ? 1. : 0., 8. * SYSTEM::TIMESTEP());
 
 	// check if player is in a vehicle
 	if (PED::IS_PED_IN_ANY_VEHICLE(playerPed, FALSE))
 	{
+		timeInVehicle += getDeltaTime();
 		Vehicle newVeh = PED::GET_VEHICLE_PED_IS_USING(playerPed);
 
 		if (newVeh != veh) {
@@ -2301,6 +2324,8 @@ void update()
 	}
 	else
 	{
+		timeInVehicle = 0.f;
+
 		ResetMouseLook();
 		DisableCustomCamera();
 		return;
