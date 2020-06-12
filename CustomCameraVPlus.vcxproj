@@ -13,14 +13,14 @@
     </ClCompile>
     <ClCompile Include="script.cpp" />
     <ClCompile Include="utils.cpp" />
-    <ClCompile Include="..\..\inc\EWMA\Ewma.cpp" />
+    <ClCompile Include="Ewma.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\inc\main.h" />
     <ClInclude Include="..\..\inc\enums.h" />
     <ClInclude Include="..\..\inc\natives.h" />
     <ClInclude Include="..\..\inc\types.h" />
-    <ClInclude Include="..\..\inc\EWMA\Ewma.h" />
+    <ClInclude Include="inc\EWMA\Ewma.h" />
     <ClInclude Include="ManualTransmissionApi.h" />
     <ClInclude Include="script.h" />
     <ClInclude Include="utils.h" />

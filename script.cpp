@@ -137,20 +137,13 @@ Vector3d back(0.0, -1.0, 0.0);
 Vector3d front(0.0, 1.0, 0.0);
 Vector3d right(1.0, 0.0, 0.0);
 
-Ewma forwInfX(0.01);
-Ewma forwInfY(0.01);
-Ewma forwInfZ(0.01);
+Ewma smPosX(0.005);
+Ewma smPosY(0.005);
+Ewma smPosZ(0.005);
 
-Ewma smDirX(0.01);
-Ewma smDirY(0.01);
-Ewma smDirZ(0.01);
-
-Ewma smPosX(0.01);
-Ewma smPosY(0.01);
-Ewma smPosZ(0.01);
-
-
-Ewma smAccel(0.419);
+Ewma smForwX(0.005);
+Ewma smForwY(0.005);
+Ewma smForwZ(0.005);
 
 Vector2i lastMouseCoords;
 double mouseMoveCountdown = 0.;
@@ -1331,7 +1324,16 @@ void setupCurrentCamera() {
 		prevVehPos = vehPos;
 		smoothLatDist = 0.;
 		smoothCurveEval = 0.;
-//		smoothVehRightVector = vehRightVector;
+
+		// Reset EMAs
+
+		smPosX.reset();
+		smPosY.reset();
+		smPosZ.reset();
+
+		smForwX.reset();
+		smForwY.reset();
+		smForwZ.reset();
 	}
 
 	CAM::SET_FOLLOW_VEHICLE_CAM_VIEW_MODE(1);
@@ -1727,7 +1729,7 @@ Vector3d buildMixedDir(Vector3d vehForwardVector, Vector3d dirV)
 	Vector3d dirN = dirV.normalized();
 	Vector3d forwN = vehForwardVector.normalized();
 
-	//forwN[2] = dirN.z();
+	forwN[2] = dirN.z();
 
 	return forwN.normalized();
 }
@@ -1737,11 +1739,27 @@ void updateCamRacing3P()
 	double calcHeigthOffset = heightOffset3p + 0.15 + heightIcrementCalc;
 	double aimHeightIncrement = lerp(0., 0.35, smoothIsAiming);
 
-	// showText(1, "FPS: " + std::to_string(1.f / GAMEPLAY::GET_FRAME_TIME()));
+	showText(1, "FPS: " + std::to_string(1.f / GAMEPLAY::GET_FRAME_TIME()));
 
 	currentTowHeightIncrement = lerp(currentTowHeightIncrement, towHeightIncrement, 1.45 * getDeltaTime());
 	currentTowLongitudeIncrement = lerp(currentTowLongitudeIncrement, towLongitudeIncrement, 1.75 * getDeltaTime());
 
+	//double auxMult = 0.00041;//double auxMult = lerp(0.000206, 0.000411, distInc);
+	//double accelInc = smAccel.filter(vehAcceleration, getDeltaTime());
+
+	//showText(1, std::to_string(vehSpeed));
+	//showText(2, std::to_string(distInc));
+
+
+	Vector3d V3CurrentTowHeightIncrement = up * currentTowHeightIncrement;
+
+	double airDistance = lerp(0., 2.5, smoothIsInAirNfs * (lerp(0.6, 1.2, smoothIsInAirNfs)));
+	float minSpeedFactor = clamp01(unlerp(0.f, 5.0f, vehSpeed));
+	float speedFactor = clamp01(unlerp(0.f, 60.0f, vehSpeed));
+
+	Vector3d targetPos = vehPos + ((calcHeightOffset3P + currentTowHeightIncrement + calcHeigthOffset + aimHeightIncrement) * up);
+
+	Vector3d rawDir = (targetPos - prevCamPos).normalized();
 
 	Vector3d posCenter = vehPos + (up * calcHeightOffset3P);
 	Vector3d smoothPosCenter = Vector3d
@@ -1751,62 +1769,18 @@ void updateCamRacing3P()
 		(double)smPosZ.filter(posCenter.z(), getDeltaTime())
 	);
 
-	double distInc = clamp01((smoothPosCenter - posCenter).norm());
+	double smDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, -vehForwardVector);
 
-	double auxMult = lerp(0.000206, 0.000411, distInc);
-	double accelInc = smAccel.filter(vehAcceleration, getDeltaTime());
+	double auxFactor = max(1.25, vehVelocity.norm());
 
-	//showText(1, std::to_string(vehSpeed));
-	//showText(2, std::to_string(distInc));
+	Vector3d targetB = vehPos /*+ (rawDir * auxFactor)*/;
+	Vector3d targetA = prevVehPos - (rawDir * auxFactor);
 
+	Vector3d auxDir = targetB - targetA;
 
-	Vector3d V3CurrentTowHeightIncrement = up * currentTowHeightIncrement;
+	Vector3d airDir = (targetPos + (-rawDir * 0.25)) - (prevCamPos + (-rawDir * 0.25));
 
-	double airDistance = lerp(0., 2.5, smoothIsInAirNfs * (lerp(0.6, 1.2, smoothIsInAirNfs)));
-	float speedMult = clamp01(unlerp(0.f, 5.0f, vehSpeed));
-
-	Vector3d targetPos = vehPos + ((calcHeightOffset3P + currentTowHeightIncrement + calcHeigthOffset + aimHeightIncrement) * up);
-
-	Vector3d rawDir = (targetPos - prevCamPos) * getDeltaTime() * 98.0025; // higher values "relax" rotation speed
-
-	Vector3d veloTarget = buildMixedDir(vehForwardVector, (vehPos - (prevVehPos - (rawDir * 0.075 * speedMult))));
-
-	Vector3d normVelo = vehVelocity.normalized();
-	if (vehSpeed < 0.25f)
-		normVelo = vehForwardVector;
-
-	double veloForwardFactor = (double)normVelo.dot(veloTarget);
-
-	//showText(4, std::to_string(auxMult));
-	//showText(5, std::to_string(accelInc));
-	//showText(6, std::to_string(auxMult + accelInc));
-
-	double veloTargetWeight = veloForwardFactor * (auxMult + accelInc) * (1. - (smootherIsInAirStep)); // higher values increases influence on forward vector, when it's aligned to velocity (multiplier is usually small [around 0.00X])
-
-	Vector3d targetB = vehPos;
-	Vector3d targetA = prevVehPos + (-rawDir);
-
-	Vector3d forwardInfluence = veloTarget * veloTargetWeight;
-
-	Vector3d filteredForwInfluence = Vector3d
-	(
-		(double)forwInfX.filter(forwardInfluence.x(), getDeltaTime()),
-		(double)forwInfY.filter(forwardInfluence.y(), getDeltaTime()),
-		(double)forwInfZ.filter(forwardInfluence.z(), getDeltaTime())
-	);
-
-	Vector3d auxDir = (targetB + (filteredForwInfluence * speedMult)) - (targetA - (filteredForwInfluence * speedMult));
-
-	Vector3d filteredVelocityDir = Vector3d
-	(
-		(double)smDirX.filter(auxDir.x(), getDeltaTime()),
-		(double)smDirY.filter(auxDir.y(), getDeltaTime()),
-		(double)smDirZ.filter(auxDir.z(), getDeltaTime())
-	);
-
-	Vector3d airDir = (targetPos + (-rawDir)) - (prevCamPos + (-rawDir));
-
-	velocityDir = lerp(filteredVelocityDir, airDir, smootherIsInAirStep);
+	velocityDir = lerp(/*filteredVelocityDir*/auxDir, airDir, smootherIsInAirStep);
 
 	dirQuat3P = lookRotation(velocityDir, up);
 
@@ -1932,8 +1906,12 @@ void updateCamRacing3P()
 	if (freeLookAtDelay)
 		veloCompQuat3P = slerp(veloCompQuat3P, lookAtQuat, mixedLookTimer);
 
+	double longOffset = (calcLongitudeOffset3P + currentTowLongitudeIncrement + (airDistance - finalPivotFrontOffset));
+	Vector3d heightOffset = up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */) + V3CurrentTowHeightIncrement;
 	
-	Vector3d camPosCam = smoothPosCenter + V3CurrentTowHeightIncrement + ((veloCompQuat3P) * back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + (airDistance - finalPivotFrontOffset) /*+ distIncFinal*/)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
+	Vector3d finalOffset = ((veloCompQuat3P)*back * longOffset) + heightOffset;
+
+	Vector3d camPosCam = posCenter + finalOffset;
 
 	prevCamPos = camPosCam;
 	PrevCamQuat = veloCompQuat3P;
@@ -1941,10 +1919,18 @@ void updateCamRacing3P()
 	if (!freeLookAt && fixedLookAt)
 	{
 		veloCompQuat3P = slerp(veloCompQuat3P, lookAtQuat, mixedLookTimer);
-		camPosCam = smoothPosCenter + V3CurrentTowHeightIncrement + ((veloCompQuat3P)*back * (calcLongitudeOffset3P + currentTowLongitudeIncrement + (airDistance - finalPivotFrontOffset) /*+ distIncFinal*/)) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */));
+
+		finalOffset = ((veloCompQuat3P)*back * longOffset) + heightOffset;
+
+		camPosCam = posCenter + finalOffset;
+	}
+	else
+	{
+		camPosCam = /*smoothPosCenter*/ (posCenter + (-vehForwardVector * smDist)) + finalOffset;
 	}
 
-	Vector3d camPosFinal = camPosCam + (aimUpIncrement * up);
+	//Vector3d camPosFinal = camPosCam + (aimUpIncrement * up) + distDir;
+	Vector3d camPosFinal = camPosCam;
 
 	Vector3d rotEuler = QuatToEuler(veloCompQuat3P);
 	rotEuler[1] = 0.;
