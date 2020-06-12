@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include "..\..\inc\natives.h"
-#include "..\..\inc\types.h"
-#include "..\..\inc\enums.h"
+#include "inc\shv\natives.h"
+#include "inc\shv\types.h"
+#include "inc\shv\enums.h"
 
 #include "utils.h"
 #include <map>
@@ -26,10 +26,10 @@
  Eigen Math lib
 */
 #include <iostream>
-#include "..\..\inc\Eigen\Dense"
+#include "inc\Eigen\Eigen\Dense"
 
 // SimpleINI
-#include "..\..\inc\simpleini\SimpleIni.h"
+#include "inc\simpleini\SimpleIni.h"
 
 #include <string.h>
 

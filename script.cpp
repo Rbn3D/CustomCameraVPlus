@@ -808,19 +808,19 @@ const Color solidPurple = { 127, 0, 255, 255 };
 const Color transparentGray = { 75, 75, 75, 75 };
 
 
-void ShowNotification(const char* msg) 
+void ShowNotification(const char* msg)
 {
-	UI::BEGIN_TEXT_COMMAND_THEFEED_POST("CELL_EMAIL_BCON");
+	UI::_SET_NOTIFICATION_TEXT_ENTRY("CELL_EMAIL_BCON");
 
 	std::string strMsg(msg);
 	const int maxStringLength = 99;
 
 	for (int i = 0; i < strlen(msg); i += maxStringLength)
 	{
-		UI::ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME((char*)strMsg.substr(i, min(maxStringLength, strlen(msg) - i)).c_str());
+		UI::_ADD_TEXT_COMPONENT_STRING((char*)strMsg.substr(i, min(maxStringLength, strlen(msg) - i)).c_str());
 	}
 
-	UI::END_TEXT_COMMAND_THEFEED_POST_TICKER(false, true);
+	UI::_DRAW_NOTIFICATION(false, true);
 }
 
 void ReadSettings(bool byUser) 
@@ -895,9 +895,9 @@ void showText(double x, double y, double scale, std::string text, int font, cons
 	UI::SET_TEXT_WRAP(0.0, 1.0);
 	UI::SET_TEXT_CENTRE(0);
 	if (outline) UI::SET_TEXT_OUTLINE();
-	UI::BEGIN_TEXT_COMMAND_DISPLAY_TEXT("STRING");
-	UI::ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME((char*)text.c_str());
-	UI::END_TEXT_COMMAND_DISPLAY_TEXT(x, y);
+	UI::_SET_TEXT_ENTRY("STRING");
+	UI::_ADD_TEXT_COMPONENT_STRING((char*)text.c_str());
+	UI::_DRAW_TEXT(x, y);
 }
 
 void showText(int index, std::string text) {
@@ -1667,7 +1667,7 @@ Vector3d GetBonePos(Entity entity, char * boneName)
 
 bool LastInputMethodWasMouseAndKeyboard()
 {
-	return CONTROLS::_IS_INPUT_DISABLED(2);
+	return CONTROLS::_GET_LAST_INPUT_METHOD(2);
 }
 
 Vector3d V3Reflect(Vector3d vector, Vector3d normal) 
@@ -1940,13 +1940,13 @@ void updateCamRacing3P()
 	Vector3d camForward = veloCompQuat3P * front;
 
 	// Raycast //
-	int ray = WORLDPROBE::_START_SHAPE_TEST_RAY(posCenter.x(), posCenter.y(), posCenter.z(), camPosFinal.x(), camPosFinal.y(), camPosFinal.z(), 1, veh, 7);
+	int ray = WORLDPROBE::_CAST_RAY_POINT_TO_POINT(posCenter.x(), posCenter.y(), posCenter.z(), camPosFinal.x(), camPosFinal.y(), camPosFinal.z(), 1, veh, 7);
 
 	Vector3 endCoords, surfaceNormal;
 	BOOL hit;
 	Entity entityHit = 0;
 
-	WORLDPROBE::GET_SHAPE_TEST_RESULT(ray, &hit, &endCoords, &surfaceNormal, &entityHit);
+	WORLDPROBE::_GET_RAYCAST_RESULT(ray, &hit, &endCoords, &surfaceNormal, &entityHit);
 
 	if (hit) {
 		setCamPos(customCam, toV3f(endCoords) + (camForward * 0.1));

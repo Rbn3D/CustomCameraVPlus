@@ -16,10 +16,10 @@
     <ClCompile Include="Ewma.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\inc\main.h" />
-    <ClInclude Include="..\..\inc\enums.h" />
-    <ClInclude Include="..\..\inc\natives.h" />
-    <ClInclude Include="..\..\inc\types.h" />
+    <ClInclude Include="inc\shv\main.h" />
+    <ClInclude Include="inc\shv\enums.h" />
+    <ClInclude Include="inc\shv\natives.h" />
+    <ClInclude Include="inc\shv\types.h" />
     <ClInclude Include="inc\EWMA\Ewma.h" />
     <ClInclude Include="ManualTransmissionApi.h" />
     <ClInclude Include="script.h" />
@@ -80,7 +80,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalOptions>..\..\lib\ScriptHookV.lib %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>lib\ScriptHookV.lib %(AdditionalOptions)</AdditionalOptions>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
     </Link>
