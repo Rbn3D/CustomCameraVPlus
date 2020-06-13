@@ -1762,19 +1762,21 @@ void updateCamRacing3P()
 	Vector3d rawDir = (targetPos - prevCamPos).normalized();
 
 	Vector3d posCenter = vehPos + (up * calcHeightOffset3P);
-	Vector3d smoothPosCenter = Vector3d
-	(
-		(double)smPosX.filter(posCenter.x(), getDeltaTime()),
-		(double)smPosY.filter(posCenter.y(), getDeltaTime()),
-		(double)smPosZ.filter(posCenter.z(), getDeltaTime())
-	);
+	//Vector3d smoothPosCenter = Vector3d
+	//(
+	//	(double)smPosX.filter(posCenter.x(), getDeltaTime()),
+	//	(double)smPosY.filter(posCenter.y(), getDeltaTime()),
+	//	(double)smPosZ.filter(posCenter.z(), getDeltaTime())
+	//);
+
+	Vector3d smoothPosCenter = posCenter;
 
 	double smDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, -vehForwardVector);
 
-	double auxFactor = max(1.25, vehVelocity.norm());
+	double auxFactor = max(1.5, vehVelocity.norm());
 
 	Vector3d targetB = vehPos /*+ (rawDir * auxFactor)*/;
-	Vector3d targetA = prevVehPos - (rawDir * auxFactor);
+	Vector3d targetA = prevVehPos - (rawDir * 1.5 * auxFactor);
 
 	Vector3d auxDir = targetB - targetA;
 
