@@ -137,9 +137,9 @@ Vector3d back(0.0, -1.0, 0.0);
 Vector3d front(0.0, 1.0, 0.0);
 Vector3d right(1.0, 0.0, 0.0);
 
-Ewma smPosX(0.005);
-Ewma smPosY(0.005);
-Ewma smPosZ(0.005);
+Ewma smPosX(0.01);
+Ewma smPosY(0.01);
+Ewma smPosZ(0.01);
 
 Ewma smForwX(0.005);
 Ewma smForwY(0.005);
@@ -1762,16 +1762,17 @@ void updateCamRacing3P()
 	Vector3d rawDir = (targetPos - prevCamPos).normalized();
 
 	Vector3d posCenter = vehPos + (up * calcHeightOffset3P);
-	//Vector3d smoothPosCenter = Vector3d
-	//(
-	//	(double)smPosX.filter(posCenter.x(), getDeltaTime()),
-	//	(double)smPosY.filter(posCenter.y(), getDeltaTime()),
-	//	(double)smPosZ.filter(posCenter.z(), getDeltaTime())
-	//);
+	Vector3d smoothPosCenter = Vector3d
+	(
+		(double)smPosX.filter(posCenter.x(), getDeltaTime()),
+		(double)smPosY.filter(posCenter.y(), getDeltaTime()),
+		(double)smPosZ.filter(posCenter.z(), getDeltaTime())
+	);
 
-	Vector3d smoothPosCenter = posCenter;
+	//Vector3d smoothPosCenter = posCenter;
 
-	double smDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, -vehForwardVector);
+	//double smDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, -vehForwardVector);
+	double smDist = (posCenter - smoothPosCenter).norm();
 
 	double auxFactor = max(1.5, vehVelocity.norm());
 
@@ -1928,7 +1929,9 @@ void updateCamRacing3P()
 	}
 	else
 	{
-		camPosCam = /*smoothPosCenter*/ (posCenter + (-vehForwardVector * smDist)) + finalOffset;
+		double realSmDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, veloCompQuat3P * back);
+
+		camPosCam = /*smoothPosCenter*/ posCenter + ((veloCompQuat3P)* back * (longOffset + realSmDist)) + heightOffset;
 	}
 
 	//Vector3d camPosFinal = camPosCam + (aimUpIncrement * up) + distDir;
