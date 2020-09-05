@@ -280,7 +280,7 @@ static const std::unordered_map<std::string, int> KeyMap = {
 	{ "VK_OEM_5" , VK_OEM_5 },			// '\|' for US
 	{ "VK_OEM_6" , VK_OEM_6 },			// '}' for US
 	{ "VK_OEM_7" , VK_OEM_7 },			// ''"' for US
-	{ "VK_OEM_8" , VK_OEM_8 },			// § !
+	{ "VK_OEM_8" , VK_OEM_8 },			// ï¿½ !
 	{ "VK_OEM_102" , VK_OEM_102 },		// > <	
 };
 
@@ -805,7 +805,7 @@ const Color transparentGray = { 75, 75, 75, 75 };
 
 void ShowNotification(const char* msg) 
 {
-	UI::_SET_NOTIFICATION_TEXT_ENTRY("CELL_EMAIL_BCON");
+	UI::BEGIN_TEXT_COMMAND_THEFEED_POST("CELL_EMAIL_BCON");
 
 	std::string strMsg(msg);
 	const int maxStringLength = 99;
@@ -815,7 +815,7 @@ void ShowNotification(const char* msg)
 		UI::ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME((char*)strMsg.substr(i, min(maxStringLength, strlen(msg) - i)).c_str());
 	}
 
-	UI::_DRAW_NOTIFICATION(false, true);
+	UI::END_TEXT_COMMAND_THEFEED_POST_TICKER(false, true);
 }
 
 void ReadSettings(bool byUser) 
