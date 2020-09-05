@@ -26,8 +26,7 @@
  Eigen Math lib
 */
 #include <iostream>
-#include "inc\Eigen\Eigen\Dense"
-
+#include "inc\Eigen\Dense"
 // SimpleINI
 #include "inc\simpleini\SimpleIni.h"
 

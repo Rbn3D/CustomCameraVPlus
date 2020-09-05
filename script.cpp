@@ -810,7 +810,7 @@ const Color transparentGray = { 75, 75, 75, 75 };
 
 void ShowNotification(const char* msg)
 {
-	UI::_SET_NOTIFICATION_TEXT_ENTRY("CELL_EMAIL_BCON");
+	UI::BEGIN_TEXT_COMMAND_THEFEED_POST("CELL_EMAIL_BCON");
 
 	std::string strMsg(msg);
 	const int maxStringLength = 99;
@@ -820,7 +820,7 @@ void ShowNotification(const char* msg)
 		UI::_ADD_TEXT_COMPONENT_STRING((char*)strMsg.substr(i, min(maxStringLength, strlen(msg) - i)).c_str());
 	}
 
-	UI::_DRAW_NOTIFICATION(false, true);
+	UI::END_TEXT_COMMAND_THEFEED_POST_TICKER(false, true);
 }
 
 void ReadSettings(bool byUser) 
