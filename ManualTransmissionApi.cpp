@@ -69,7 +69,6 @@ void setupCompatibility() {
 
 void releaseCompatibility() {
 	if (MT::GearsModule) {
-		FreeLibrary(MT::GearsModule);
 		MT::Present = false;
 	}
 }
