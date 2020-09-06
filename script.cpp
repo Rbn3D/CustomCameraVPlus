@@ -1302,7 +1302,7 @@ void updateVehicleVars()
 	if ((ENTITY::IS_ENTITY_IN_AIR(veh) || (ENTITY::GET_ENTITY_UPRIGHT_VALUE(veh) < 0.6f)) && smoothIsInAir < 0.001f)
 	{
 		smoothVelocity = getCameraForwardVector(customCam);
-		//velocityQuat3P = lookRotation(smoothVelocitreleaseCompatibilityy);
+		//velocityQuat3P = lookRotation(smoothVelocitreleaseCompatibility);
 	}
 
 	smoothIsInAir = lerp(smoothIsInAir, (ENTITY::IS_ENTITY_IN_AIR(veh) || ENTITY::IS_ENTITY_UPSIDEDOWN(veh)) ? 1.f : 0.f, 12.f * getDeltaTime());
