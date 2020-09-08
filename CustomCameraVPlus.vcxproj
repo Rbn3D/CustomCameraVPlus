@@ -12,6 +12,7 @@
       <FileType>CppCode</FileType>
     </ClCompile>
     <ClCompile Include="script.cpp" />
+    <ClCompile Include="SpringForce.cpp" />
     <ClCompile Include="utils.cpp" />
     <ClCompile Include="Ewma.cpp" />
   </ItemGroup>
@@ -23,6 +24,7 @@
     <ClInclude Include="inc\EWMA\Ewma.h" />
     <ClInclude Include="ManualTransmissionApi.h" />
     <ClInclude Include="script.h" />
+    <ClInclude Include="SpringForce.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>

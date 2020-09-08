@@ -21,6 +21,7 @@
 #endif 
 
 #include "Ewma.h"
+#include "SpringForce.h"
 
 /*
  Eigen Math lib

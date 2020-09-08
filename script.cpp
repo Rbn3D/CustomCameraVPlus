@@ -137,13 +137,32 @@ Vector3d back(0.0, -1.0, 0.0);
 Vector3d front(0.0, 1.0, 0.0);
 Vector3d right(1.0, 0.0, 0.0);
 
-Ewma smPosX(0.01);
-Ewma smPosY(0.01);
-Ewma smPosZ(0.01);
 
-Ewma smForwX(0.005);
-Ewma smForwY(0.005);
-Ewma smForwZ(0.005);
+double smoothFactorEwmaForw = 0.05;
+
+Ewma smForwX(smoothFactorEwmaForw);
+Ewma smForwY(smoothFactorEwmaForw);
+Ewma smForwZ(smoothFactorEwmaForw);
+
+
+double smoothFactorEwmaPos = 0.05;
+double smoothFactorEwmaPos2 = 0.05;
+
+Ewma smPosX(smoothFactorEwmaPos);
+Ewma smPosY(smoothFactorEwmaPos);
+Ewma smPosZ(smoothFactorEwmaPos);
+
+Ewma smPosX2(smoothFactorEwmaPos2);
+Ewma smPosY2(smoothFactorEwmaPos2);
+Ewma smPosZ2(smoothFactorEwmaPos2);
+
+SpringForce camMotionX;
+SpringForce camMotionY;
+SpringForce camMotionZ;
+
+Vector3d smoothPosCenter;
+Vector3d smoothPosCenter2;
+
 
 Vector2i lastMouseCoords;
 double mouseMoveCountdown = 0.;
@@ -1334,6 +1353,14 @@ void setupCurrentCamera() {
 		smForwX.reset();
 		smForwY.reset();
 		smForwZ.reset();
+
+		camMotionX.position = prevCamPos.x();
+		camMotionY.position = prevCamPos.y();
+		camMotionZ.position = prevCamPos.z();
+
+		camMotionX.anchor = prevCamPos.x();
+		camMotionY.anchor = prevCamPos.y();
+		camMotionZ.anchor = prevCamPos.z();
 	}
 
 	CAM::SET_FOLLOW_VEHICLE_CAM_VIEW_MODE(1);
@@ -1762,22 +1789,34 @@ void updateCamRacing3P()
 	Vector3d rawDir = (targetPos - prevCamPos).normalized();
 
 	Vector3d posCenter = vehPos + (up * calcHeightOffset3P);
-	Vector3d smoothPosCenter = Vector3d
-	(
-		(double)smPosX.filter(posCenter.x(), getDeltaTime()),
-		(double)smPosY.filter(posCenter.y(), getDeltaTime()),
-		(double)smPosZ.filter(posCenter.z(), getDeltaTime())
-	);
+	//smoothPosCenter = Vector3d
+	//(
+	//	(double)smPosX.filter(smoothPosCenter2.x(), getDeltaTime()),
+	//	(double)smPosY.filter(smoothPosCenter2.y(), getDeltaTime()),
+	//	(double)smPosZ.filter(smoothPosCenter2.z(), getDeltaTime())
+	//);
+
+	//smoothPosCenter2 = Vector3d
+	//(
+	//	(double)smPosX2.filter(smoothPosCenter.x(), getDeltaTime()),
+	//	(double)smPosY2.filter(smoothPosCenter.y(), getDeltaTime()),
+	//	(double)smPosZ2.filter(smoothPosCenter.z(), getDeltaTime())
+	//);
+
+	smoothPosCenter[0] = (double) camMotionX.Update(posCenter.x(), getDeltaTime());
+	smoothPosCenter[1] = (double) camMotionY.Update(posCenter.y(), getDeltaTime());
+	smoothPosCenter[2] = (double) camMotionZ.Update(posCenter.z(), getDeltaTime());
 
 	//Vector3d smoothPosCenter = posCenter;
 
 	//double smDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, -vehForwardVector);
-	double smDist = (posCenter - smoothPosCenter).norm();
+	
+	//double smDist = (posCenter - smoothPosCenter).norm();
 
 	double auxFactor = max(1.5, vehVelocity.norm());
 
 	Vector3d targetB = vehPos /*+ (rawDir * auxFactor)*/;
-	Vector3d targetA = prevVehPos - (rawDir * 1.5 * auxFactor);
+	Vector3d targetA = prevVehPos - (rawDir * auxFactor);
 
 	Vector3d auxDir = targetB - targetA;
 
@@ -1929,13 +1968,17 @@ void updateCamRacing3P()
 	}
 	else
 	{
-		double realSmDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, veloCompQuat3P * back);
+		//double realSmDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, veloCompQuat3P * back);
 
-		camPosCam = /*smoothPosCenter*/ posCenter + ((veloCompQuat3P)* back * (longOffset + realSmDist)) + heightOffset;
+		camPosCam = /*smoothPosCenter*/ posCenter + ((veloCompQuat3P)* back * (longOffset + 1.5)) + heightOffset;
 	}
 
-	//Vector3d camPosFinal = camPosCam + (aimUpIncrement * up) + distDir;
-	Vector3d camPosFinal = camPosCam;
+	smoothPosCenter[0] = (double)camMotionX.Update(camPosCam.x(), getDeltaTime());
+	smoothPosCenter[1] = (double)camMotionY.Update(camPosCam.y(), getDeltaTime());
+	smoothPosCenter[2] = (double)camMotionZ.Update(camPosCam.z(), getDeltaTime());
+
+	//Vector3d camPosFinal = camPosCam;
+	Vector3d camPosFinal = smoothPosCenter;
 
 	Vector3d rotEuler = QuatToEuler(veloCompQuat3P);
 	rotEuler[1] = 0.;
