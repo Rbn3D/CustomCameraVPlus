@@ -137,13 +137,13 @@ Vector3d back(0.0, -1.0, 0.0);
 Vector3d front(0.0, 1.0, 0.0);
 Vector3d right(1.0, 0.0, 0.0);
 
-Ewma smPosX(0.01);
-Ewma smPosY(0.01);
-Ewma smPosZ(0.01);
+Ewma smPosX(0.011);
+Ewma smPosY(0.011);
+Ewma smPosZ(0.011);
 
-Ewma smForwX(0.005);
-Ewma smForwY(0.005);
-Ewma smForwZ(0.005);
+Ewma smForwX(0.02);
+Ewma smForwY(0.02);
+Ewma smForwZ(0.02);
 
 Vector2i lastMouseCoords;
 double mouseMoveCountdown = 0.;
@@ -1777,13 +1777,14 @@ void updateCamRacing3P()
 	double auxFactor = max(1.5, vehVelocity.norm());
 
 	Vector3d targetB = vehPos /*+ (rawDir * auxFactor)*/;
-	Vector3d targetA = prevVehPos - (rawDir * 1.5 * auxFactor);
+	Vector3d targetA = prevVehPos - (rawDir * auxFactor);
 
 	Vector3d auxDir = targetB - targetA;
 
-	Vector3d airDir = (targetPos + (-rawDir * 0.25)) - (prevCamPos + (-rawDir * 0.25));
+	//Vector3d airDir = (targetPos + (-rawDir * 0.25)) - (prevCamPos + (-rawDir * 0.25));
 
-	velocityDir = lerp(/*filteredVelocityDir*/auxDir, airDir, smootherIsInAirStep);
+	//velocityDir = lerp(/*filteredVelocityDir*/auxDir, airDir, smootherIsInAirStep);
+	velocityDir = auxDir;
 
 	dirQuat3P = lookRotation(velocityDir, up);
 
