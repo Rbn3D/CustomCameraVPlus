@@ -137,14 +137,6 @@ Vector3d back(0.0, -1.0, 0.0);
 Vector3d front(0.0, 1.0, 0.0);
 Vector3d right(1.0, 0.0, 0.0);
 
-Ewma smPosX(0.011);
-Ewma smPosY(0.011);
-Ewma smPosZ(0.011);
-
-Ewma smForwX(0.02);
-Ewma smForwY(0.02);
-Ewma smForwZ(0.02);
-
 Vector2i lastMouseCoords;
 double mouseMoveCountdown = 0.;
 
@@ -1324,16 +1316,6 @@ void setupCurrentCamera() {
 		prevVehPos = vehPos;
 		smoothLatDist = 0.;
 		smoothCurveEval = 0.;
-
-		// Reset EMAs
-
-		smPosX.reset();
-		smPosY.reset();
-		smPosZ.reset();
-
-		smForwX.reset();
-		smForwY.reset();
-		smForwZ.reset();
 	}
 
 	CAM::SET_FOLLOW_VEHICLE_CAM_VIEW_MODE(1);
@@ -1762,22 +1744,23 @@ void updateCamRacing3P()
 	Vector3d rawDir = (targetPos - prevCamPos).normalized();
 
 	Vector3d posCenter = vehPos + (up * calcHeightOffset3P);
-	Vector3d smoothPosCenter = Vector3d
-	(
-		(double)smPosX.filter(posCenter.x(), getDeltaTime()),
-		(double)smPosY.filter(posCenter.y(), getDeltaTime()),
-		(double)smPosZ.filter(posCenter.z(), getDeltaTime())
-	);
+	//Vector3d smoothPosCenter = Vector3d
+	//(
+	//	(double)smPosX.filter(posCenter.x(), getDeltaTime()),
+	//	(double)smPosY.filter(posCenter.y(), getDeltaTime()),
+	//	(double)smPosZ.filter(posCenter.z(), getDeltaTime())
+	//);
 
 	//Vector3d smoothPosCenter = posCenter;
 
 	//double smDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, -vehForwardVector);
-	double smDist = (posCenter - smoothPosCenter).norm();
+	//double smDist = (posCenter - smoothPosCenter).norm();
 
-	double auxFactor = max(1.5, vehVelocity.norm());
+	//double auxFactor = max(1.5, vehVelocity.norm());
 
 	Vector3d targetB = vehPos /*+ (rawDir * auxFactor)*/;
-	Vector3d targetA = prevVehPos - (rawDir * auxFactor);
+	//Vector3d targetA = prevVehPos - (rawDir * auxFactor);
+	Vector3d targetA = prevVehPos - (rawDir * 2.585);
 
 	Vector3d auxDir = targetB - targetA;
 
@@ -1930,9 +1913,9 @@ void updateCamRacing3P()
 	}
 	else
 	{
-		double realSmDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, veloCompQuat3P * back);
+		//double realSmDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, veloCompQuat3P * back);
 
-		camPosCam = /*smoothPosCenter*/ posCenter + ((veloCompQuat3P)* back * (longOffset + realSmDist)) + heightOffset;
+		camPosCam = /*smoothPosCenter*/ posCenter + ((veloCompQuat3P)* back * (longOffset /*+ realSmDist*/)) + heightOffset;
 	}
 
 	//Vector3d camPosFinal = camPosCam + (aimUpIncrement * up) + distDir;
@@ -2317,7 +2300,7 @@ void update()
 
 			smoothRadarAngle = NormalizeAngle(smoothRadarAngle);
 
-			UI::LOCK_MINIMAP_ANGLE(NormalizeAngle(smoothRadarAngle - (lBehind ? 180. : 0.)));
+			UI::LOCK_MINIMAP_ANGLE(NormalizeAngle(smoothRadarAngle - (lBehind ? 180 : 0)));
 		}
 		else
 		{
