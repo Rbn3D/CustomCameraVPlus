@@ -137,6 +137,10 @@ Vector3d back(0.0, -1.0, 0.0);
 Vector3d front(0.0, 1.0, 0.0);
 Vector3d right(1.0, 0.0, 0.0);
 
+Ewma smRotX(0.0125);
+Ewma smRotY(0.0125);
+Ewma smRotZ(0.0125);
+
 Vector2i lastMouseCoords;
 double mouseMoveCountdown = 0.;
 
@@ -1316,6 +1320,12 @@ void setupCurrentCamera() {
 		prevVehPos = vehPos;
 		smoothLatDist = 0.;
 		smoothCurveEval = 0.;
+
+		// Reset EWMAs
+
+		smRotX.reset();
+		smRotY.reset();
+		smRotZ.reset();
 	}
 
 	CAM::SET_FOLLOW_VEHICLE_CAM_VIEW_MODE(1);
@@ -1716,7 +1726,7 @@ Vector3d buildMixedDir(Vector3d vehForwardVector, Vector3d dirV)
 	return forwN.normalized();
 }
 
-void updateCamRacing3P()
+void updateThridPersonCamera()
 {
 	double calcHeigthOffset = heightOffset3p + 0.15 + heightIcrementCalc;
 	double aimHeightIncrement = lerp(0., 0.35, smoothIsAiming);
@@ -1744,29 +1754,16 @@ void updateCamRacing3P()
 	Vector3d rawDir = (targetPos - prevCamPos).normalized();
 
 	Vector3d posCenter = vehPos + (up * calcHeightOffset3P);
-	//Vector3d smoothPosCenter = Vector3d
-	//(
-	//	(double)smPosX.filter(posCenter.x(), getDeltaTime()),
-	//	(double)smPosY.filter(posCenter.y(), getDeltaTime()),
-	//	(double)smPosZ.filter(posCenter.z(), getDeltaTime())
-	//);
 
-	//Vector3d smoothPosCenter = posCenter;
-
-	//double smDist = distanceOnAxisNoAbs(posCenter, smoothPosCenter, -vehForwardVector);
-	//double smDist = (posCenter - smoothPosCenter).norm();
-
-	//double auxFactor = max(1.5, vehVelocity.norm());
-
-	Vector3d targetB = vehPos /*+ (rawDir * auxFactor)*/;
-	//Vector3d targetA = prevVehPos - (rawDir * auxFactor);
-	Vector3d targetA = prevVehPos - (rawDir * 2.585);
+	Vector3d targetB = vehPos;
+	Vector3d targetA = prevVehPos - (rawDir * 2.0); // Higher scalar number means slower adaptation
 
 	Vector3d auxDir = targetB - targetA;
 
-	//Vector3d airDir = (targetPos + (-rawDir * 0.25)) - (prevCamPos + (-rawDir * 0.25));
+	auxDir[0] = smRotX.filter(auxDir.x(), getDeltaTime()); // Filter using EWMA
+	auxDir[1] = smRotY.filter(auxDir.y(), getDeltaTime());
+	auxDir[2] = smRotZ.filter(auxDir.z(), getDeltaTime());
 
-	//velocityDir = lerp(/*filteredVelocityDir*/auxDir, airDir, smootherIsInAirStep);
 	velocityDir = auxDir;
 
 	dirQuat3P = lookRotation(velocityDir, up);
@@ -1955,7 +1952,7 @@ void updateCamRacing3P()
 void updateCustomCamera() 
 {
 	if (currentCam == eCamType::Racing3P) {
-		updateCamRacing3P();
+		updateThridPersonCamera();
 	}
 	else if(currentCam == eCamType::DriverSeat1P) {
 		updateCameraDriverSeat();

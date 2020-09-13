@@ -28,20 +28,6 @@ double exponentialMovingAverageIrregular(
 }
 
 double Ewma::filter(double input, double dt) {
-	//if (hasInitial) {
-
-	//	double alpha = 1. - std::exp(std::log(0.5) * dt / halflife_);
- //       output = alpha * input + (1. - alpha) * prev_ewma_;
-
-	//	prev_ewma_ = output;
-
-	//} else {
-	//	prev_ewma_ = input;
-
-	//	output = input;
-	//	hasInitial = true;
-	//}
-	//return output;
 
 	if (!hasInitial)
 	{
