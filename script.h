@@ -36,6 +36,8 @@
 // Manual Transmission input integration
 #include "ManualTransmissionApi.h"
 
+#include "NativeMemory.hpp";
+
 using namespace Eigen;
 
 void DisableCustomCamera();

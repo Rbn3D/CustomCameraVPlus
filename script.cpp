@@ -918,6 +918,8 @@ void firstInit()
 {
 	setupCompatibility();
 
+	mem::init();
+
 	ReadSettings(false);
 }
 

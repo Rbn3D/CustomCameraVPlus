@@ -11,6 +11,7 @@
     <ClCompile Include="ManualTransmissionApi.cpp">
       <FileType>CppCode</FileType>
     </ClCompile>
+    <ClCompile Include="NativeMemory.cpp" />
     <ClCompile Include="script.cpp" />
     <ClCompile Include="utils.cpp" />
     <ClCompile Include="Ewma.cpp" />
@@ -22,6 +23,7 @@
     <ClInclude Include="inc\shv\types.h" />
     <ClInclude Include="inc\EWMA\Ewma.h" />
     <ClInclude Include="ManualTransmissionApi.h" />
+    <ClInclude Include="NativeMemory.hpp" />
     <ClInclude Include="script.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
