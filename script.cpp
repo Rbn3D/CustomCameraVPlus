@@ -1981,6 +1981,7 @@ void DisableCustomCamera()
 	camInitialized = false;
 	isInVehicle = false;
 	//veh = NULL;
+	hook::CustomCameraEnabled = false;
 	
 	haltCurrentCamera();
 }
@@ -2225,6 +2226,8 @@ void update()
 	Player player = PLAYER::PLAYER_ID();
 	playerPed = PLAYER::PLAYER_PED_ID();
 
+	hook::PlayerPed = &playerPed;
+
 	// check if player ped exists and control is on (e.g. not in a cutscene)
 	if (!ENTITY::DOES_ENTITY_EXIST(playerPed) || !PLAYER::IS_PLAYER_CONTROL_ON(player))
 	{
@@ -2251,6 +2254,8 @@ void update()
 		timeInVehicle += getDeltaTime();
 		Vehicle newVeh = PED::GET_VEHICLE_PED_IS_USING(playerPed);
 
+		hook::PlayerVehicle = &newVeh;
+
 		if (newVeh != veh) {
 			veh = newVeh;
 			WAIT(0); // Wait one frame so we are sure we can fetch vehicle properties
@@ -2258,6 +2263,9 @@ void update()
 			updateVehicleProperties();
 		}
 		if (isSuitableForCam && customCamEnabled) {
+
+			hook::CustomCameraEnabled = true;
+			hook::CurrentCamera = currentCam;
 
 			CONTROLS::DISABLE_CONTROL_ACTION(0, eControl::ControlNextCamera, true);
 			CONTROLS::DISABLE_CONTROL_ACTION(0, eControl::ControlVehicleCinCam, true);

@@ -36,7 +36,7 @@
 // Manual Transmission input integration
 #include "ManualTransmissionApi.h"
 
-#include "NativeMemory.hpp";
+#include "FunctionHooks.hpp";
 
 using namespace Eigen;
 

@@ -7,6 +7,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="FunctionHooks.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ManualTransmissionApi.cpp">
       <FileType>CppCode</FileType>
@@ -17,6 +18,9 @@
     <ClCompile Include="Ewma.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Ewma.h" />
+    <ClInclude Include="FunctionHooks.hpp" />
+    <ClInclude Include="inc\PolyHook\ZydisExportConfig.h" />
     <ClInclude Include="inc\shv\main.h" />
     <ClInclude Include="inc\shv\enums.h" />
     <ClInclude Include="inc\shv\natives.h" />
@@ -34,6 +38,13 @@
   <ItemGroup>
     <Text Include="changelog.txt" />
     <Text Include="Install.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="lib\asmjit.lib" />
+    <Library Include="lib\capstone.lib" />
+    <Library Include="lib\PolyHook_2.lib" />
+    <Library Include="lib\Zycore.lib" />
+    <Library Include="lib\Zydis.lib" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{8D82F34A-1D64-465B-84B1-37F89AD3D20B}</ProjectGuid>
@@ -62,6 +73,7 @@
     <TargetExt>.asi</TargetExt>
     <OutDir>bin\$(Configuration)\</OutDir>
     <IntDir>tmp\$(Configuration)\</IntDir>
+    <IncludePath>$(ProjectDir)\inc\PolyHook;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>

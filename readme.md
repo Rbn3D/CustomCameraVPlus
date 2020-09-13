@@ -51,7 +51,21 @@ https://www.gta5-mods.com/scripts/custom-camera-v-plus
 
 ### Issues? ###
 
-
 Report issues and errors here:
 
 https://github.com/Rbn3D/CustomCameraVPlus/issues
+
+
+### License ###
+
+This project is licensed under the MIT License.
+
+
+### Copyright notice ###
+
+Third party projects that this software relies on:
+
+* [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page)
+* [PolyHook V2](https://github.com/stevemk14ebr/PolyHook_2_0)
+* [SimpleIni](https://github.com/brofield/simpleini)
+* [Script Hook V](http://www.dev-c.com/gtav/scripthookv/)
