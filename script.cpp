@@ -11,6 +11,7 @@ double smoothViewLock = 0.;
 BOOL modEnabled = true;
 BOOL camInitialized = false;
 Vehicle veh;
+Player player;
 Ped playerPed;
 
 Vector3d prevVehPos;
@@ -1294,7 +1295,7 @@ void updateVehicleVars()
 
 void setupCurrentCamera() {
 	if (currentCam == eCamType::DriverSeat1P) {
-		ENTITY::SET_ENTITY_ALPHA(playerPed, 0, false);
+		//ENTITY::SET_ENTITY_ALPHA(playerPed, 0, false);
 		CAM::SET_CAM_NEAR_CLIP(customCam, 0.05);
 		CAM::SET_CAM_FAR_CLIP(customCam, 740.0);
 		CAM::SET_CAM_FOV(customCam, fov1P);
@@ -1346,7 +1347,9 @@ void setupCustomCamera() {
 	setupCurrentCamera();
 }
 
-void updateCameraDriverSeat() {
+void updateCameraFirstPerson() {
+
+
 
 	if (CONTROLS::IS_CONTROL_PRESSED(0, eControl::ControlLookBehind) || isLookingBack)
 	{
@@ -1400,8 +1403,8 @@ void updateCameraDriverSeat() {
 
 		distIncFinal = accelThreshold + max(0., vehSpeed * 0.01295) - 0.3;
 
-		distIncFinal *= 0.175;
-		distIncFinal = clamp(distIncFinal, -0.1, 0.1);
+		distIncFinal *= 0.1;
+		distIncFinal = clamp(distIncFinal, -0.05, 0.05);
 	}
 
 	double btnLookingFactor = abs(RelativeLookFactor);
@@ -1544,6 +1547,244 @@ void updateCameraDriverSeat() {
 	CAM::SET_CAM_COORD(customCam, camPos.x(), camPos.y(), camPos.z());
 
 	CAM::RENDER_SCRIPT_CAMS(true, false, 3000, 1, 0);
+}
+
+void StopHeavyBrakeAnims()
+{
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "anim@veh@armordillo@turret@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "anim@veh@lowrider@low@front_ds@arm@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "anim@veh@lowrider@std@ds@arm@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "anim@veh@truck@phantom2@rear_back@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "anim@veh@truck@wastelander@rds_front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "anim@veh@truck@wastelander@rds_rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "anim@veh@truck@wastelander@rps_front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "anim@veh@truck@wastelander@rps_rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "anim@veh@valkyrie@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "missarmenian3@franklin_driving", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@boat@jetski@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@boat@jetski@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@boat@marquis@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@boat@predator@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@boat@predator@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@boat@speed@fds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@boat@speed@fps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@bulldozer@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@bus@bus@driver@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@bus@coach@driver@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@bus@passenger@common@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@bus@pbus@driver@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@forklift@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@handler@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@helicopter@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@helicopter@frogger@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@helicopter@frogger@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@helicopter@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@helicopter@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@helicopter@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@jeep@bodhi@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@jeep@bodhi@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@low@front_ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@low@front_ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@low@front_ps@female@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@mower@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@std@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@std@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@std@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@std@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@truck@barracks@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@truck@barracks@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@truck@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@truck@firetruck@rear_ds", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@truck@firetruck@rear_ps", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@truck@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@van@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@van@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@van@rds_rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "heavy_brake", "veh@van@rps_rear@base", 0.f);
+}
+
+void StopShuntFromFrontAnims()
+{
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@armordillo@turret@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@lowrider@low@front_ds@arm@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@lowrider@std@ds@arm@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@sit_variations@chopper@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@sit_variations@chopper@front@idle_b", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@sit_variations@dirt@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@sit_variations@police@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@sit_variations@police_chimera@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@sit_variations@quad@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@sit_variations@scooter@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@sit_variations@sports@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@std@panto@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@technical@turret@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@truck@phantom2@rear_back@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@truck@wastelander@rds_front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@truck@wastelander@rds_rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@truck@wastelander@rps_front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@truck@wastelander@rps_rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "anim@veh@valkyrie@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "creatures@rottweiler@incar@", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "creatures@rottweiler@in_vehicle@4x4", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "creatures@rottweiler@in_vehicle@low_car", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "creatures@rottweiler@in_vehicle@std_car", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "creatures@rottweiler@in_vehicle@van", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "missarmenian3@franklin_driving", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "missheistbank_bulldozer", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@chopper@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@chopper@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@dirt@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@dirt@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@police@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@police@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@quad@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@scooter@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@scooter@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@sport@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bike@sport@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@boat@jetski@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@boat@jetski@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@boat@marquis@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@boat@predator@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@boat@predator@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@boat@speed@fds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@boat@speed@fps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bulldozer@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bus@bus@driver@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bus@coach@driver@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bus@passenger@common@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@bus@pbus@driver@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@forklift@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@handler@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@helicopter@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@helicopter@frogger@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@helicopter@frogger@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@helicopter@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@helicopter@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@helicopter@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@jeep@bodhi@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@jeep@bodhi@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@low@front_ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@low@front_ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@low@front_ps@female@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@mower@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@cuban@front@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@cuban@front@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@duster@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@lazer@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@mammatus@front@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@mammatus@front@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@shamal@front@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@shamal@front@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@stunt@front@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@velum@front@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@plane@velum@front@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@std@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@std@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@std@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@std@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@truck@barracks@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@truck@barracks@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@truck@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@truck@firetruck@rear_ds", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@truck@firetruck@rear_ps", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@truck@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@van@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@van@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@van@rds_rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_front", "veh@van@rps_rear@base", 0.f);
+}
+
+void StopShuntFromBackAnims()
+{
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@armordillo@turret@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@lowrider@low@front_ds@arm@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@lowrider@std@ds@arm@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@sit_variations@chopper@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@sit_variations@chopper@front@idle_b", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@sit_variations@dirt@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@sit_variations@police@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@sit_variations@police_chimera@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@sit_variations@quad@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@sit_variations@scooter@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@sit_variations@sports@front@idle_a", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@std@panto@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@technical@turret@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@truck@phantom2@rear_back@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@truck@wastelander@rds_front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@truck@wastelander@rds_rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@truck@wastelander@rps_front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@truck@wastelander@rps_rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "anim@veh@valkyrie@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "creatures@rottweiler@incar@", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "creatures@rottweiler@in_vehicle@4x4", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "creatures@rottweiler@in_vehicle@low_car", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "creatures@rottweiler@in_vehicle@std_car", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "creatures@rottweiler@in_vehicle@van", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "missarmenian3@franklin_driving", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "missheistbank_bulldozer", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@chopper@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@chopper@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@dirt@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@dirt@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@police@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@police@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@quad@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@scooter@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@scooter@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@sport@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bike@sport@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@boat@jetski@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@boat@jetski@rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@boat@marquis@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@boat@predator@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@boat@predator@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@boat@speed@fds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@boat@speed@fps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bulldozer@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bus@bus@driver@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bus@coach@driver@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bus@passenger@common@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@bus@pbus@driver@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@forklift@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@handler@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@helicopter@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@helicopter@frogger@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@helicopter@frogger@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@helicopter@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@helicopter@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@helicopter@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@jeep@bodhi@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@jeep@bodhi@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@low@front_ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@low@front_ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@low@front_ps@female@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@mower@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@cuban@front@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@cuban@front@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@duster@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@lazer@front@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@mammatus@front@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@mammatus@front@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@shamal@front@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@shamal@front@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@stunt@front@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@velum@front@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@plane@velum@front@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@std@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@std@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@std@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@std@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@truck@barracks@rds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@truck@barracks@rps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@truck@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@truck@firetruck@rear_ds", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@truck@firetruck@rear_ps", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@truck@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@van@ds@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@van@ps@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@van@rds_rear@base", 0.f);
+	ENTITY::STOP_ENTITY_ANIM(player, "shunt_from_back", "veh@van@rps_rear@base", 0.f);
 }
 
 void ProccessLookLeftRightOrBackInput()
@@ -1955,13 +2196,13 @@ void updateCustomCamera()
 		updateThridPersonCamera();
 	}
 	else if(currentCam == eCamType::DriverSeat1P) {
-		updateCameraDriverSeat();
+		updateCameraFirstPerson();
 	}
 }
 
 void haltCurrentCamera() {
 	if (currentCam == eCamType::DriverSeat1P) {
-		ENTITY::SET_ENTITY_ALPHA(playerPed, 255, false);
+		//ENTITY::SET_ENTITY_ALPHA(playerPed, 255, false);
 		CAM::SET_CAM_NEAR_CLIP(customCam, 0.15);
 		CAM::SET_CAM_FAR_CLIP(customCam, 800.0);
 	}
@@ -2220,7 +2461,7 @@ void update()
 		customCamEnabled = !customCamEnabled;
 	}
 
-	Player player = PLAYER::PLAYER_ID();
+	player = PLAYER::PLAYER_ID();
 	playerPed = PLAYER::PLAYER_PED_ID();
 
 	// check if player ped exists and control is on (e.g. not in a cutscene)

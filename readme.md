@@ -43,11 +43,6 @@ https://www.gta5-mods.com/scripts/custom-camera-v-plus
 * Toggle mod enabled by pressing 1.
 * Reload ini settings by pressing F10.
 
-### Recommended third party mods to use with Custom Camera V ###
-
-* Inverse power script by ikt
-* A handling mod, such as Realistic Driving V or RDE 3.0 handling file
-
 
 ### Issues? ###
 
@@ -55,3 +50,17 @@ https://www.gta5-mods.com/scripts/custom-camera-v-plus
 Report issues and errors here:
 
 https://github.com/Rbn3D/CustomCameraVPlus/issues
+
+
+### License ###
+
+This project is licensed under the GPL License.
+
+
+### Thrid Party Software ###
+
+This projects uses and/or benefits from the following thrid party software:
+
+* [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page)
+* [Script Hook V](http://www.dev-c.com/gtav/scripthookv/)
+* [SimpleIni](https://github.com/brofield/simpleini)

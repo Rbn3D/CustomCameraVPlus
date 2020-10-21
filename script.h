@@ -54,6 +54,8 @@ void lookBehind1p();
 
 void ProccessLookLeftRightOrBackInput();
 
+void StopHeavyBrakeAnims();
+
 Vector3d GetBonePos(Entity entity, char * boneName);
 
 bool LastInputMethodWasMouseAndKeyboard();
@@ -69,6 +71,10 @@ void ShowNotification(char * msg);
 void ReadSettings(bool notify);
 
 Vector3d getCameraForwardVector(Camera cam);
+
+void StopHeavyBrakeAnims();
+void StopShuntFromFrontAnims();
+void StopShuntFromBackAnims();
 
 enum eDecorType {
 	DECOR_TYPE_FLOAT = 1,
@@ -487,5 +493,7 @@ const char* const vehicleBones[] =
 	"neon_f",
 	"neon_b"
 };
+
+#define SKEL_Head 0x796e;
 
 Quaterniond QuatEuler(Eigen::Vector3d &camVec);
