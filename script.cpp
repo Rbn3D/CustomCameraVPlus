@@ -380,10 +380,6 @@ float LookLeftAngle3p = 90.0f;
 float LookRightAngle3p = 90.0f;
 
 bool InertiaAffectsPitch3p = false;
-bool SmartHeadingEnabled = true;
-float SmartHeadingIntensity = 1.f;
-float smoothSmartHeading = 0.f;
-float smoothSmartHeading2 = 0.f;
 
 bool InertiaEffects1p = true;
 
@@ -841,9 +837,6 @@ void ReadSettings(bool byUser)
 		
 		//InertiaAffectsPitch3p = ini.GetLongValue("3rdPersonView", "InertiaAffectsPitch", 0) > 0;
 		InertiaForce3p = (float)ini.GetDoubleValue("3rdPersonView", "InertiaForce", 1.0);
-
-		SmartHeadingEnabled = ini.GetLongValue("3rdPersonView", "SmartHeading", 1l) > 0;
-		SmartHeadingIntensity = (float)ini.GetDoubleValue("3rdPersonView", "SmartHeadingIntensity", 1.0);
 
 		InertiaEffects1p = ini.GetLongValue("1stPersonView", "InertiaEffects", 1) > 0;
 
@@ -1857,26 +1850,28 @@ void updateCamThirdPerson3P()
 	Vector3f camPosFinal;
 
 	//camPosSmooth += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.25f * clamp01(vehSpeed * 0.7f)) */;
-	if (!switchBack)
-	{
-		camPosSmooth = lerp(camPosSmooth, camPosCam, 1.6375f * getDeltaTime());
 
-		Quaternionf compensationDir = slerp(finalQuat3P, veloQuat3P, factorLook);
+	//if (!switchBack)
+	//{
+	//	camPosSmooth = lerp(camPosSmooth, camPosCam, 1.6375f * getDeltaTime());
 
-		float distOffsetRotAxis = distanceOnAxisNoAbs(camPosCam, camPosSmooth, compensationDir * back);
+	//	Quaternionf compensationDir = slerp(finalQuat3P, veloQuat3P, factorLook);
 
-		camPosSmooth += compensationDir * front * distOffsetRotAxis;
+	//	float distOffsetRotAxis = distanceOnAxisNoAbs(camPosCam, camPosSmooth, compensationDir * back);
 
-		//Vector3f camPosFinal = camPosSmooth;
+	//	camPosSmooth += compensationDir * front * distOffsetRotAxis;
 
-		//if (isAiming || timerResetLook > 0.00001f || !AreSameFloat(0.f, lookHorizontalAngle))
-		camPosFinal = lerp(camPosSmooth, camPosCam, factorLook);
-	}
-	else
-	{
-		camPosFinal = camPosCam;
-	}
+	//	//Vector3f camPosFinal = camPosSmooth;
 
+	//	//if (isAiming || timerResetLook > 0.00001f || !AreSameFloat(0.f, lookHorizontalAngle))
+	//	camPosFinal = lerp(camPosSmooth, camPosCam, factorLook);
+	//}
+	//else
+	//{
+	//	camPosFinal = camPosCam;
+	//}
+
+	camPosFinal = camPosCam;
 	prevCamPos = camPosFinal;
 
 	camPosFinal += finalQuat3P * back * distIncFinal;
@@ -1897,41 +1892,9 @@ void updateCamThirdPerson3P()
 	}
 	// End raycast //
 
-	Vector3f rotEuler;
 
-	if (SmartHeadingEnabled)
-	{
-		Quaternionf quatAux = finalQuat3P;
-
-		float velodiff = vehVelocity.normalized().x() - smoothVelocity.normalized().x();
-
-		//float smartLook = velodiff * (vehSpeed * 0.5f) * SmartHeadingIntensity * 0.175f;
-		//smoothSmartHeading = lerp((smoothSmartHeading2 + smoothSmartHeading) * 0.5f, smartLook, 1.75f * getDeltaTime());
-		//smoothSmartHeading2 = lerp(smoothSmartHeading2, smartLook, 2.85f * getDeltaTime());
-
-		//float roll = 0.f, pitch = 0.f, yaw = smoothSmartHeading - smoothSmartHeading2;
-
-		float smartLook = velodiff * clamp01(vehSpeed * 0.1f) * SmartHeadingIntensity * 0.33f;
-		smoothSmartHeading = lerp(smoothSmartHeading, smartLook, 1.95f * getDeltaTime());//lerp((smoothSmartHeading2 + smoothSmartHeading) * 0.5f, smartLook, 1.75f * getDeltaTime());
-		//smoothSmartHeading2 = lerp(smoothSmartHeading2, smartLook, 2.85f * getDeltaTime());
-
-		float roll = 0.f, pitch = 0.f, yaw = smoothSmartHeading;// - smoothSmartHeading2;
-
-		Quaternionf qSmartLook;
-		qSmartLook = AngleAxisf(roll, Vector3f::UnitX())
-			* AngleAxisf(pitch, Vector3f::UnitY())
-			* AngleAxisf(yaw, Vector3f::UnitZ());
-
-		quatAux = quatAux * qSmartLook;
-
-		rotEuler = QuatToEuler(quatAux);
-	}
-	else
-	{
-		rotEuler = QuatToEuler(finalQuat3P);
-	}
-
-	rotEuler[1] = 0.f;
+	Vector3f rotEuler = QuatToEuler(finalQuat3P);
+	rotEuler[1] = 0.f; // 'Y' component = 0.f
 
 	CAM::SET_CAM_ROT(customCam, rotEuler.x() + (distIncFinal * 2.3f) - cameraAngle3p, rotEuler.y(), rotEuler.z(), 2);
 }
