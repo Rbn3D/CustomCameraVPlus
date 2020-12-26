@@ -424,10 +424,10 @@ float vehDelayedAccel3 = 0.f;
 float vehDelayedAccel4 = 0.f;
 float smoothIsGoingForwardInc = 0.f;
 
-char * reloadKey = "F10";
-char * toggleModKey = "1";
-char * lookLeftKey = "B";
-char * lookRightKey = "N";
+const char * reloadKey = "F10";
+const char * toggleModKey = "1";
+const char * lookLeftKey = "B";
+const char * lookRightKey = "N";
 
 bool hasInputThisFrame = false;
 bool hasMouseInputThisFrame = false;
@@ -1116,11 +1116,6 @@ Quaternionf slerp(Quaternionf& q1, Quaternionf& q2, float time)
 	return q1.slerp(time, q2);
 }
 
-Quaternionf nlerp(Quaternionf& q1, Quaternionf& q2, float time)
-{
-	return QuatEuler(lerp(QuatToEuler(q1), QuatToEuler(q2), time));
-}
-
 float smoothStep(float from, float to, float t)
 {
 	t = clamp01(t);
@@ -1209,7 +1204,7 @@ void camPointAt(Camera cam, Vector3f pos) {
 	CAM::POINT_CAM_AT_COORD(cam, pos.x(), pos.y(), pos.z());
 }
 
-bool vehHasBone(char *boneName) {
+bool vehHasBone(const char *boneName) {
 	return (ENTITY::GET_ENTITY_BONE_INDEX_BY_NAME(veh, boneName) != -1);
 }
 
@@ -1369,7 +1364,10 @@ void updateCameraDriverSeat() {
 
 		CAM::RENDER_SCRIPT_CAMS(true, false, 3000, 1, 0);
 		smoothRotSeat = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
-		smoothQuatSeat = slerp(smoothQuatSeat, getEntityQuaternion(veh), clamp01(30.f * getDeltaTime()));
+
+		Quaternionf vehQuaternion = getEntityQuaternion(veh);
+
+		smoothQuatSeat = slerp(smoothQuatSeat, vehQuaternion, clamp01(30.f * getDeltaTime()));
 
 		return;
 	}
@@ -1481,7 +1479,9 @@ void updateCameraDriverSeat() {
 
 			float rx = clamp(resultEuler[0], -62.f, 40.f);
 
-			lookQuat = QuatEuler(Vector3f(rx, 0.f, resultEuler[2]));
+			Vector3f res = Vector3f(rx, 0.f, resultEuler[2]);
+
+			lookQuat = QuatEuler(res);
 		}
 
 		timerResetLook = clamp(timerResetLook - getDeltaTime(), 0.f, 2.f);
@@ -1538,7 +1538,9 @@ void updateCameraDriverSeat() {
 
 				float rx = clamp(resultEuler[0], -62.f, 40.f);
 
-				lookQuat = QuatEuler(Vector3f(rx, 0.f, resultEuler[2]));
+				Vector3f res = Vector3f(rx, 0.f, resultEuler[2]);
+
+				lookQuat = QuatEuler(res);
 			}
 
 			timerResetLook = clamp(timerResetLook - getDeltaTime(), 0.f, 2.f);
@@ -1596,7 +1598,7 @@ void lookBehind1p()
 	if (isBike)
 		camPos = toV3f(ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(veh, ENTITY::GET_ENTITY_BONE_INDEX_BY_NAME(veh, "seat_f"))) + (vehUpVector * 0.3f); // bike
 	else {
-		char *boneName;
+		std::string boneName;
 		Vector3f offset;
 
 		bool hasBone = false;
@@ -1650,8 +1652,8 @@ void lookBehind1p()
 			
 		else
 		{
-			char* boneName1 = "brakelight_l";
-			char* boneName2 = "brakelight_l";
+			std::string boneName1 = "brakelight_l";
+			std::string boneName2 = "brakelight_l";
 
 			Vector3f pos1 = GetBonePos(veh, boneName1);
 			Vector3f pos2 = GetBonePos(veh, boneName2);
@@ -1676,9 +1678,9 @@ void lookBehind1p()
 	SET_CAM_QUATERNION(customCam, quat * invert180);
 }
 
-Vector3f GetBonePos(Entity entity, char * boneName)
+Vector3f GetBonePos(Entity entity, std::string boneName)
 {
-	return toV3f(ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(veh, ENTITY::GET_ENTITY_BONE_INDEX_BY_NAME(entity, boneName)));
+	return toV3f(ENTITY::GET_WORLD_POSITION_OF_ENTITY_BONE(veh, ENTITY::GET_ENTITY_BONE_INDEX_BY_NAME(entity, boneName.c_str())));
 }
 
 bool LastInputMethodWasMouseAndKeyboard()
@@ -1697,10 +1699,10 @@ float CalcDistInc(Vehicle veh)
 {
 	float accelScale = VEHICLE::GET_VEHICLE_ACCELERATION(veh);
 
-	float vehDirectAccel = ((double)(vehAcceleration * accelScale)) * 1700.0;
+	float vehDirectAccel = ((double)(vehAcceleration * accelScale)) * 1000.0;
 
-	vehDelayedAccel1 = lerp(vehDelayedAccel1, vehDirectAccel, 1.735f * getDeltaTime());
-	vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.625f * getDeltaTime());
+	vehDelayedAccel1 = lerp(vehDelayedAccel1, vehDirectAccel, 1.0f * getDeltaTime());
+	vehDelayedAccel2 = lerp(vehDelayedAccel2, vehDirectAccel, 0.4f * getDeltaTime());
 
 	vehDelayedAccel3 = lerp(vehDelayedAccel3, vehDirectAccel, 0.30f * getDeltaTime());
 	vehDelayedAccel4 = lerp(vehDelayedAccel4, vehDirectAccel, 0.08f * getDeltaTime());
@@ -1712,7 +1714,7 @@ float CalcDistInc(Vehicle veh)
 
 	float distIncFinal = clamp(accelThreshold, -1.7f, 1.5f) + max(0.f, vehSpeed * 0.01295f) - 0.3f + smoothIsGoingForwardInc;
 
-	distIncFinal *= 0.7f * InertiaForce3p;
+	distIncFinal *= InertiaForce3p;
 
 	return distIncFinal;
 }
@@ -1744,7 +1746,7 @@ void updateCamThirdPerson3P()
 	float highSpeedFactor = unlerp(hightSpeedMin, highSpeedMax, clamp(vehSpeed, hightSpeedMin, highSpeedMax)) * 0.020f;
 
 	Vector3f targetPos = vehPos + (up * calcHeightOffset3P) + ((currentTowHeightIncrement + calcHeigthOffset) * up) + (vehForwardVector * finalPivotFrontOffset);
-	targetPos += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.5f * (clamp01(vehSpeed * 0.7f)))*/;
+	//targetPos += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.5f * (clamp01(vehSpeed * 0.7f)))*/;
 
 	//targetPos += smoothVelocity * highSpeedFactor * (1.f - smoothIsInAir) * max(((vehAcceleration * VEHICLE::GET_VEHICLE_ACCELERATION(veh)) * 250.f), 0.f) * 0.45f;
 
@@ -1802,7 +1804,9 @@ void updateCamThirdPerson3P()
 
 		float rx = clamp(resultEuler[0], -62.f, 40.f);
 
-		lookQuat = QuatEuler(Vector3f(rx, 0.f, resultEuler[2]));
+		Vector3f res = Vector3f(rx, 0.f, resultEuler[2]);
+
+		lookQuat = QuatEuler(res);
 	}
 
 	if (!AreFloatsSimilar(0.f, lookHorizontalAngle))
@@ -1849,7 +1853,7 @@ void updateCamThirdPerson3P()
 
 	float pivotInfluenceLook = lerp(finalPivotFrontOffset, -0.2f, clamp01(abs(lookHorizontalAngle * 0.00277f))) * smoothIsInAir;
 
-	Vector3f camPosCam = posCenter + V3CurrentTowHeightIncrement + ((finalQuat3P)*back * (((calcLongitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + (airDistance)+distIncFinal)) - finalPivotFrontOffset) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */)));
+	Vector3f camPosCam = posCenter + V3CurrentTowHeightIncrement + ((finalQuat3P)*back * (((calcLongitudeOffset3P + currentTowLongitudeIncrement + pivotInfluenceLook + (airDistance)/*+distIncFinal*/)) - finalPivotFrontOffset) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */)));
 	Vector3f camPosFinal;
 
 	//camPosSmooth += /*smoothQuat3P*/ dirQuat3P * back * distIncFinal /* * (0.25f * clamp01(vehSpeed * 0.7f)) */;
@@ -1874,6 +1878,9 @@ void updateCamThirdPerson3P()
 	}
 
 	prevCamPos = camPosFinal;
+
+	camPosFinal += finalQuat3P * back * distIncFinal;
+
 	setCamPos(customCam, camPosFinal);
 
 	// Raycast //

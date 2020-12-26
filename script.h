@@ -20,7 +20,7 @@
  Eigen Math lib
 */
 #include <iostream>
-#include "inc\Eigen\Dense"
+#include "inc\Eigen\Eigen\Dense"
 
 // SimpleINI
 #include "inc\simpleini\SimpleIni.h"
@@ -52,7 +52,7 @@ void lookBehind1p();
 
 void ProccessLookLeftRightOrBackInput();
 
-Vector3f GetBonePos(Entity entity, char * boneName);
+Vector3f GetBonePos(Entity entity, std::string boneName);
 
 void updateCam3pSmoothAlgorithm();
 
