@@ -30,6 +30,8 @@
 // Manual Transmission input integration
 #include "ManualTransmissionApi.h"
 
+//#include "SimpleHarmonicOscillator.hxx"
+
 using namespace Eigen;
 
 #ifndef M_PI
