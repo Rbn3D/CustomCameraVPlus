@@ -27,6 +27,10 @@
 
 #include <string.h>
 
+// fmt
+#include "inc\fmt-8.0.0\include\fmt\core.h"
+#include "inc\fmt-8.0.0\include\fmt\format.h"
+
 // Manual Transmission input integration
 #include "ManualTransmissionApi.h"
 
