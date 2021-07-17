@@ -1807,7 +1807,9 @@ void updateCamThirdPerson3P()
 
 	Vector3f targetPos = vehPos + ((up * calcHeightOffset3P) + ((currentTowHeightIncrement + calcHeigthOffset) * up)) /*+ (finalQuat3P * front * 0.25f)*/;
 
-	Vector3f prevCamAux = (lerp(prevCamPos, targetPos, 0.14f * 70.f * getDeltaTime())) /*+ (finalQuat3P * front * 0.25f)*/;
+	float dist = V3Distance(prevCamPos, targetPos);
+
+	Vector3f prevCamAux = (lerp(prevCamPos, targetPos, dist * 70.f * getDeltaTime())) /*+ (finalQuat3P * front * 0.25f)*/;
 
 	Vector3f camRight = (finalQuat3P * right).normalized();
 	//Vector3f camUp = camRight.cross(camForward);
