@@ -1809,7 +1809,10 @@ void updateCamThirdPerson3P()
 
 	float dist = V3Distance(prevCamPos, targetPos);
 
-	Vector3f prevCamAux = (lerp(prevCamPos, targetPos, dist * 70.f * getDeltaTime())) /*+ (finalQuat3P * front * 0.25f)*/;
+	float origSign = sgn(dist);
+	dist = powf(abs(dist), 2.f) * origSign;
+
+	Vector3f prevCamAux = (lerp(prevCamPos, targetPos, dist * getDeltaTime())) /*+ (finalQuat3P * front * 0.25f)*/;
 
 	Vector3f camRight = (finalQuat3P * right).normalized();
 	//Vector3f camUp = camRight.cross(camForward);
