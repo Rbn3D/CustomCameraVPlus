@@ -8,7 +8,7 @@ float smoothIsMouseLooking = 0.f;
 float viewLock = 0.f;
 float smoothViewLock = 0.f;
 
-float fixDistRight;
+//float fixDistRight;
 
 BOOL modEnabled = true;
 BOOL camInitialized = false;
@@ -1432,23 +1432,20 @@ void updateCameraDriverSeat1p() {
 	else
 		camPos = seatPos; // car; // car
 
-	if (smoothIsAiming > 0.00001f) {
-		float currentFov = lerp(fov1P, fov1PAiming, smoothIsAiming);
-		CAM::SET_CAM_FOV(customCam, currentFov);
-	}
-	else if (DynamicFov1pEnabled)
+	float desiredFov = fov1P;
+	if (DynamicFov1pEnabled)
 	{
 		float fSpeed = min(vehSpeed, DynamicFov1pMaxLimit ? DynamicFovMaxAtSpeed1p : 110.f);
 		float auxUnlerp = unlerp(0.f, DynamicFovMaxAtSpeed1p, fSpeed);
 
-		float desiredFov = lerp(DynamicFovMin1p, DynamicFovMax1p, auxUnlerp);
-
-		showText(0, fmt::format("{0}: {1}", "VehSpeed (m/s) ", vehSpeed));
-		showText(1, fmt::format("{0}: {1}", "VehSpeed (Km/h)", vehSpeed * 3.6f));
-		showText(2, fmt::format("{0}: {1}", "cameraFoV", desiredFov));
-
-		CAM::SET_CAM_FOV(customCam, desiredFov);
+		desiredFov = lerp(DynamicFovMin1p, DynamicFovMax1p, auxUnlerp);
 	}
+
+	if (smoothIsAiming > 0.001f) {
+		desiredFov = lerp(desiredFov, fov1PAiming, smoothIsAiming);
+	}
+
+	CAM::SET_CAM_FOV(customCam, desiredFov);
 
 	if (isAiming) {
 		UI::SHOW_HUD_COMPONENT_THIS_FRAME(eHudComponent::HudComponentReticle);
@@ -1810,7 +1807,7 @@ void updateCamThirdPerson3P()
 	float dist = V3Distance(prevCamPos, targetPos);
 
 	float origSign = sgn(dist);
-	dist = powf(abs(dist), 2.f) * origSign;
+	dist = powf(abs(dist), 2.71828f) * origSign;
 
 	Vector3f prevCamAux = (lerp(prevCamPos, targetPos, dist * getDeltaTime())) /*+ (finalQuat3P * front * 0.25f)*/;
 
@@ -1834,7 +1831,7 @@ void updateCamThirdPerson3P()
 	//smoothTargetPos = lerp(smoothTargetPos, targetPos, clamp01(distTargets * getDeltaTime()));
 	//smoothTargetPosEq = lerp(smoothTargetPosEq, targetPos, clamp01(distTargets * 2.f * getDeltaTime()));
 
-	fixDistRight = clamp(distanceOnAxis(smoothTargetPos, targetPos, camRight), -1.f, 1.f);
+	//fixDistRight = clamp(distanceOnAxis(smoothTargetPos, targetPos, camRight), -1.f, 1.f);
 	//float fixDistForward = distanceOnAxisAbs(smoothTargetPosEq, targetPos, camForward);
 	//showText(2, fmt::format("{0}: {1}", "fixDistForward (pre)", fixDistForward));
 
@@ -1843,8 +1840,8 @@ void updateCamThirdPerson3P()
 
 
 
-	float fixDistExp = powf(abs(fixDistRight), 4.f);
-	fixDistRight = fixDistExp * sgn(fixDistRight);
+	//float fixDistExp = powf(abs(fixDistRight), 4.f);
+	//fixDistRight = fixDistExp * sgn(fixDistRight);
 
 	//composedTargetPos += fixDistRight * currentMult * camRight;
 	Vector3f composedTargetPos = targetPos /* + fixDistRight * 0.70f * camRight*/;
