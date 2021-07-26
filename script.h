@@ -48,6 +48,8 @@ float getVehicleLongitude(Vehicle vehicle);
 
 float getVehicleLongitudeFromCenterBack(Vehicle vehicle);
 
+float getVehicleCenterToFrontLongitude(Vehicle vehicle);
+
 float getVehicleHeight(Vehicle vehicle);
 
 float getVehicleHeightFromCenterUp(Vehicle vehicle);
