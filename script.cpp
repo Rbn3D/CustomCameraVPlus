@@ -87,6 +87,7 @@ float calcLongitudeOffset3P = 0.f;
 float calcHeightOffset3P = 0.f;
 
 float vehCenterToFrontDist = 0.f;
+float vehCenterToBackDist = 0.f;
 
 float heightIcrementCalc = 0.f;
 
@@ -583,6 +584,17 @@ float easeInCubic(float t) {
 
 float easeInCirq(float t) {
 	return -1 * (sqrt(1 - t * t) - 1);
+}
+
+float easeInOutCirq(float t)
+{
+	if ((t /= 1.f / 2.f) < 1.f) return -1.f / 2.f * (sqrt(1.f - t * t) - 1.f);
+	return 1.f / 2.f * (sqrt(1.f - (t -= 2.f) * t) + 1.f);
+}
+
+float easeInOutCubic(float t)
+{
+	return t < .5f ? 4.f * t * t * t : (t - 1.f) * (2.f * t - 2.f) * (2.f * t - 2.f) + 1.f;
 }
 
 float easeOutCubic(float t) {
@@ -1302,6 +1314,7 @@ void updateVehicleProperties()
 	calcLongitudeOffset3P = getVehicleLongitudeFromCenterBack(veh) + 0.7f;
 
 	vehCenterToFrontDist = getVehicleCenterToFrontLongitude(veh);
+	vehCenterToBackDist = getVehicleLongitudeFromCenterBack(veh);
 
 	calcHeightOffset3P = clamp(getVehicleHeightFromCenterUp(veh) + 0.5f, 0.f, 2.0f);
 	//ShowNotification(std::to_string(heightOffset3P).c_str());
@@ -2044,9 +2057,17 @@ void updateCamThirdPerson3P()
 	prevVehSpeed = vehSpeed;
 
 	Quaternionf realRotQuat = lookRotation((targetPos - realCamPos).normalized());
-	Quaternionf realRotQuatFr = lookRotation((  (targetPos + (vehForwardVector * vehCenterToFrontDist)) - realCamPos).normalized());
+	Quaternionf realRotQuatFr = lookRotation(((targetPos + (vehForwardVector * vehCenterToFrontDist)) - realCamPos).normalized());
+	Quaternionf realRotQuatBck = lookRotation(((targetPos + (-vehForwardVector * vehCenterToBackDist)) - realCamPos).normalized());
 
-	Quaternionf reatQuatComp = slerp(realRotQuat, realRotQuatFr, 0.20f);
+	float factAux = unlerp(-1.f, 1.f, (realRotQuat * front).dot(vehForwardVector));
+
+	showText(1, fmt::format("{0}: {1}", "factAux", factAux));
+
+	Quaternionf auxFrontBack = slerp(realRotQuatBck, realRotQuatFr, factAux);
+
+	Quaternionf reatQuatComp = slerp(realRotQuat, auxFrontBack, -0.10f * min(1.f - factorLook, 1.f - smoothIsInAir));
+	//Quaternionf reatQuatComp = auxFrontBack;
 
 	Vector3f rotEuler = QuatToEuler(reatQuatComp);
 	//rotEuler[1] = 0.f; // 'Y' component = 0.f
