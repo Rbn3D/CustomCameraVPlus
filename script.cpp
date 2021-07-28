@@ -2016,7 +2016,7 @@ void updateCamThirdPerson3P()
 	//Vector3f aux1 = camPosFinal + (vehQuat * back * distScalar);
 	Vector3f realCamPos = camPosFinal /*+ (distDir * distScalar)*//* + (distDirLat * latInc * 0.333f) */;
 
-	setCamPos(customCam, realCamPos);
+	//setCamPos(customCam, realCamPos);
 
 	prevVehPos = vehPos;
 
@@ -2034,25 +2034,6 @@ void updateCamThirdPerson3P()
 	}
 	// End raycast //
 
-	//prevCamRot3p = finalQuat3P;
-	//prevCamRot3p = finalQuat3P;
-
-	//if (distFact >= 0.99f)
-	//{
-	//	prevCamRot3p = finalQuat3P;
-	//}
-	//else
-	//{
-	//	if (distFact <= 0.01f)
-	//	{
-	//		prevCamRot3p = dirQuat3P;
-	//	}
-	//	else
-	//	{
-	//		prevCamRot3p = slerp(dirQuat3P, finalQuat3P, distFact);
-	//	}
-	//}
-
 	prevCamRot3p = dirQuat3P;
 	prevVehSpeed = vehSpeed;
 
@@ -2061,30 +2042,23 @@ void updateCamThirdPerson3P()
 	Quaternionf realRotQuatBck = lookRotation(((targetPos + (-vehForwardVector * vehCenterToBackDist)) - realCamPos).normalized());
 
 	float factAux = unlerp(-1.f, 1.f, (realRotQuat * front).dot(vehForwardVector));
+	float factAux2 = max(factAux, 0.875f);
+	float factAux3 = clamp01(lerp(0.f, 0.5f, factAux));
 
-	showText(1, fmt::format("{0}: {1}", "factAux", factAux));
+	//showText(1, fmt::format("{0}: {1}", "factAux", factAux));
 
-	Quaternionf auxFrontBack = slerp(realRotQuatBck, realRotQuatFr, factAux);
+	Quaternionf auxFrontBack = slerp(realRotQuatBck, realRotQuatFr, factAux3);
 
-	Quaternionf reatQuatComp = slerp(realRotQuat, auxFrontBack, -0.10f * min(1.f - factorLook, 1.f - smoothIsInAir));
-	//Quaternionf reatQuatComp = auxFrontBack;
+	//Quaternionf reatQuatComp = slerp(realRotQuat, auxFrontBack, -0.30f * min(1.f - factorLook, 1.f - smoothIsInAir));
+	Quaternionf reatQuatComp = slerp(realRotQuat, auxFrontBack, factAux2 * 0.15f * min(1.f - factorLook, 1.f - smoothIsInAir));
+
 
 	Vector3f rotEuler = QuatToEuler(reatQuatComp);
 	//rotEuler[1] = 0.f; // 'Y' component = 0.f
 
-	//float tiltAngle = clamp(-latDist * 30.f, -2.f, 2.f);
-	//showText(1, fmt::format("{0}: {1}", "tiltAngle", tiltAngle));
+	realCamPos = posCenter + V3CurrentTowHeightIncrement + ((reatQuatComp) * back * (((calcLongitudeOffset3P /*+ posCenterOffset*/ + currentTowLongitudeIncrement /*+ pivotInfluenceLook*/ /*+ (airDistance)*//*+distIncFinal*/)) - finalPivotFrontOffset) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */)));
 
-	//float deadzone = 0.15f;
-	//float tiltAngleDz = abs(tiltAngle) > deadzone ? tiltAngle - (deadzone * sgn(tiltAngle)) : 0.f;
-
-	//showText(2, fmt::format("{0}: {1}", "tiltAngleDz", tiltAngleDz));
-
-
-
-	//float angleAdditional = (vehQuat * back).dot(dirQuat3P * right);
-	//showText(1, fmt::format("{0}: {1}", "angleAdditional", angleAdditional));
-
+	setCamPos(customCam, realCamPos);
 
 	CAM::SET_CAM_ROT(customCam, rotEuler.x() - cameraAngle3p, 0.f /*tiltAngleDz*/, rotEuler.z() /*- angleAdditional*/ /*+ (latDistProc2 * 1.f)*/ /* + (0.166666f * distFact) */ , 2);
 }
