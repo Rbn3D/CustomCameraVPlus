@@ -498,6 +498,13 @@ float clamp(float n, float lower, float upper) {
 	return max(lower, min(n, upper));
 }
 
+float map(float x, float in_min, float in_max, float out_min, float out_max, bool clampValue = false)
+{
+	float r = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+	if (clampValue) r = clamp(r, out_min, out_max);
+	return r;
+}
+
 float DeltaAngle(float current, float target)
 {
 	float num = mathRepeat(target - current, 360.f);
@@ -1403,14 +1410,13 @@ void setupCurrentCamera() {
 		float auxHeightOffset = heightOffset3p + 0.15f + heightIcrementCalc;
 		smoothTargetPos = vehPos + ((up * auxHeightOffset) + ((currentTowHeightIncrement + auxHeightOffset) * up));
 	}
-
-	CAM::SET_FOLLOW_VEHICLE_CAM_VIEW_MODE(1);
 }
 
 void setupCustomCamera() {
 	customCam = CAM::CREATE_CAM_WITH_PARAMS("DEFAULT_SCRIPTED_CAMERA", vehPos.x(), vehPos.y(), vehPos.z(), vehRot.x(), vehRot.y(), vehRot.z(), fov3P, true, 2);
 	CAM::SET_CAM_ACTIVE(customCam, true);
-	CAM::RENDER_SCRIPT_CAMS(true, false, 3000, true, false);
+
+	CAM::RENDER_SCRIPT_CAMS(true, false, 0, true, false);
 
 	smoothRadarAngle = mathRepeat(CAM::GET_GAMEPLAY_CAM_ROT(2).z, 360.f);
 
@@ -1418,6 +1424,7 @@ void setupCustomCamera() {
 	isInVehicle = true;
 
 	CAM::SET_CINEMATIC_MODE_ACTIVE(false);
+	CAM::SET_CAM_MOTION_BLUR_STRENGTH(customCam, 1.f);
 
 	setupCurrentCamera();
 }
@@ -1455,13 +1462,13 @@ void updateCameraDriverSeat1p() {
 		camPos = seatPos; // car; // car
 
 	float desiredFov = fov1P;
-	if (DynamicFov1pEnabled)
-	{
-		float fSpeed = min(vehSpeed, DynamicFov1pMaxLimit ? DynamicFovMaxAtSpeed1p : 110.f);
-		float auxUnlerp = unlerp(0.f, DynamicFovMaxAtSpeed1p, fSpeed);
+	//if (DynamicFov1pEnabled)
+	//{
+	//	float fSpeed = min(vehSpeed, DynamicFov1pMaxLimit ? DynamicFovMaxAtSpeed1p : 110.f);
+	//	float auxUnlerp = unlerp(0.f, DynamicFovMaxAtSpeed1p, fSpeed);
 
-		desiredFov = lerp(DynamicFovMin1p, DynamicFovMax1p, auxUnlerp);
-	}
+	//	desiredFov = lerp(DynamicFovMin1p, DynamicFovMax1p, auxUnlerp);
+	//}
 
 	if (smoothIsAiming > 0.001f) {
 		desiredFov = lerp(desiredFov, fov1PAiming, smoothIsAiming);
@@ -1634,9 +1641,12 @@ void updateCameraDriverSeat1p() {
 		camPos += wheelieFactor * 0.540f * -((vehSpeed < 1.25f || vehVelocity.dot(vehForwardVector) <= 0.12f ? vehForwardVector : vehVelocity).normalized());
 	}
 
-	CAM::SET_CAM_COORD(customCam, camPos.x(), camPos.y(), camPos.z());
+	//CAM::SET_CAM_COORD(customCam, camPos.x(), camPos.y(), camPos.z());
 
-	CAM::RENDER_SCRIPT_CAMS(true, false, 3000, 1, 0);
+	Vector3 wOffset = ENTITY::GET_OFFSET_FROM_ENTITY_GIVEN_WORLD_COORDS(veh, camPos.x(), camPos.y(), camPos.z());
+
+	//setCamPos(customCam, realCamPos);
+	CAM::ATTACH_CAM_TO_ENTITY(customCam, veh, wOffset.x, wOffset.y, wOffset.z, true); // set and offset instead of world pos
 }
 
 void ProccessLookLeftRightOrBackInput()
@@ -1894,20 +1904,6 @@ void updateCamThirdPerson3P()
 
 	bool switchBack = false;
 
-	//if ((prevLookHorizontalAngle >= 165.f && prevLookHorizontalAngle <= 180.1f) && (lookHorizontalAngle <= 179.9f)) {
-
-	//	bool switchBack = true;
-	//	lookHorizontalAngle = 0.f;
-
-	//	lookQuat = vehQuat;
-	//	dirQuat3P = lookQuat;
-	//	smoothQuat3P = lookQuat;
-	//	finalQuat3P = lookQuat;
-
-	//	//prevCamPos = (vehPos + (up * calcHeightOffset3P)) + (up * (0.14f + extraAngleCamHeight)) + ((lookQuat)*back * (calcLongitudeOffset3P + currentTowLongitudeIncrement));
-	//	//camPosSmooth = prevCamPos;
-	//}
-
 	prevLookHorizontalAngle = lookHorizontalAngle;
 
 	float factorLook = clamp01(timerResetLook + abs(RelativeLookFactor) + (lookBehind ? 1.f : 0.f));
@@ -1965,43 +1961,6 @@ void updateCamThirdPerson3P()
 	prevCamPos  = camPosCam;
 	camPosFinal = camPosCam;
 
-	//float latDist = distanceOnAxis(vehPos + prevCamRot3p * back, vehPos + finalQuat3P * back, finalQuat3P * right * (1.f - factorLook)) * 75.f * getDeltaTime();
-	//showText(2, fmt::format("{0}: {1}", "latDist", latDist));
-	
-	//float forwDist = ( (vehSpeed - prevVehSpeed) * getDeltaTime() * 75.f) * (lerp(0.125f, 1.f, 1.f - clamp01((finalQuat3P * back).dot(prevCamRot3p * back))) * getDeltaTime() * 75.f);
-
-	//float latSgn = sgn(latDist);
-	//float latDistLin = abs(latDist) * latSgn;
-	//float latDistEased = easeOutCubic(abs(latDist * 0.5f)) * latSgn;
-
-	//setCamPos(customCam, camPosFinal);
-
-	//Vector3f auxFPos = camPosFinal + easedOffset;
-
-	//float forwSgn = sgn(distanceOnAxis(vehPos + (finalQuat3P * back), vehPos + (vehQuat * back), finalQuat3P * -right));
-	//forwDist *= forwSgn;
-
-	//showText(1, fmt::format("{0}: {1}", "latDistEased", latDistEased));
-	//showText(1, fmt::format("{0}: {1}", "forwDist", forwDist));
-
-	//Vector3f offsetForw = finalQuat3P * front * forwDist;
-	//Vector3f offsetLat  = finalQuat3P * right * forwDist;
-	//Vector3f linealOffset = (finalQuat3P * -right * latDist);
-
-	//Vector3f distOffset = finalQuat3P * back * distScalar;
-
-	//Vector3f fcamPos = camPosFinal + offsetForw;
-
-	//float auxMult = ((prevCamRot3p * right).dot(finalQuat3P * front)) * getDeltaTime() * 75.f;
-
-	//float latMult = clamp(auxMult, -0.2f, 0.2f) * 5.f;
-
-	//float auxSgn = sgn(latMult);
-	//latMult = easeOutCubic(latMult) * auxSgn;
-
-	//showText(2, fmt::format("{0}: {1}", "latMult", latMult));
-
-	//fcamPos = fcamPos + (offsetLat * latMult);
 
 	float fSpeed = min(vehSpeed, DynamicFov3pMaxLimit ? DynamicFovMaxAtSpeed3p : 110.f);
 	float distScalar = unlerp(0.f, DynamicFovMaxAtSpeed3p, fSpeed);
@@ -2043,14 +2002,14 @@ void updateCamThirdPerson3P()
 
 	float factAux = unlerp(-1.f, 1.f, (realRotQuat * front).dot(vehForwardVector));
 	float factAux2 = max(factAux, 0.875f);
-	float factAux3 = clamp01(lerp(0.f, 0.5f, factAux));
+	float factAux3 = clamp01(lerp(0.f, 0.475f, factAux));
 
 	//showText(1, fmt::format("{0}: {1}", "factAux", factAux));
 
 	Quaternionf auxFrontBack = slerp(realRotQuatBck, realRotQuatFr, factAux3);
 
 	//Quaternionf reatQuatComp = slerp(realRotQuat, auxFrontBack, -0.30f * min(1.f - factorLook, 1.f - smoothIsInAir));
-	Quaternionf reatQuatComp = slerp(realRotQuat, auxFrontBack, factAux2 * 0.15f * min(1.f - factorLook, 1.f - smoothIsInAir));
+	Quaternionf reatQuatComp = slerp(realRotQuat, auxFrontBack, factAux2 * 0.25f * min(1.f - factorLook, 1.f - smoothIsInAir));
 
 
 	Vector3f rotEuler = QuatToEuler(reatQuatComp);
@@ -2058,9 +2017,21 @@ void updateCamThirdPerson3P()
 
 	realCamPos = posCenter + V3CurrentTowHeightIncrement + ((reatQuatComp) * back * (((calcLongitudeOffset3P /*+ posCenterOffset*/ + currentTowLongitudeIncrement /*+ pivotInfluenceLook*/ /*+ (airDistance)*//*+distIncFinal*/)) - finalPivotFrontOffset) + (up * (aimHeightIncrement + calcHeigthOffset/* + heightInc */)));
 
-	setCamPos(customCam, realCamPos);
+	//float factDist = (reatQuatComp * front).dot(vehRightVector);
+	////Vector3f fixedVel = vehSpeed > 0.05f ? vehVelocity.normalized() : vehForwardVector;
 
-	CAM::SET_CAM_ROT(customCam, rotEuler.x() - cameraAngle3p, 0.f /*tiltAngleDz*/, rotEuler.z() /*- angleAdditional*/ /*+ (latDistProc2 * 1.f)*/ /* + (0.166666f * distFact) */ , 2);
+	//float latOffset = clamp(factDist, -0.4f, 0.4f) * 0.02f;
+	//realCamPos += reatQuatComp * (-right * latOffset);
+
+	//float latAngle = atan2f(latOffset, V3Distance(targetPos, realCamPos)) * RADIAN_TO_DEG;
+
+	//CAM::OVERRIDE_CAM_SPLINE_MOTION_BLUR(customCam, 15, 1.f, 1.f);
+
+	CAM::SET_CAM_ROT(customCam, rotEuler.x() - cameraAngle3p, 0.f, rotEuler.z(), 2);
+	Vector3 wOffset = ENTITY::GET_OFFSET_FROM_ENTITY_GIVEN_WORLD_COORDS(veh, realCamPos.x(), realCamPos.y(), realCamPos.z());
+
+	//setCamPos(customCam, realCamPos);
+	CAM::ATTACH_CAM_TO_ENTITY(customCam, veh, wOffset.x, wOffset.y, wOffset.z, true); // set and offset instead of world pos
 }
 
 void updateCustomCamera() 
