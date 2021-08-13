@@ -313,6 +313,63 @@ struct {
 	BOOL prev;
 } _keyStates[KEYS_SIZE];
 
+bool headRemoved = false;
+
+HMODULE g_DismembermentModule = nullptr;
+void(*g_Dismemberbent_AddBoneDraw)(int handle, int start, int end) = nullptr;
+void(*g_Dismemberbent_RemoveBoneDraw)(int handle) = nullptr;
+
+template <typename T>
+T CheckAddr(HMODULE lib, const std::string& funcName) {
+	FARPROC func = GetProcAddress(lib, funcName.c_str());
+	if (!func) {
+		//logger.Write(ERROR, "[Compat] Couldn't get function [%s]", funcName.c_str());
+		return nullptr;
+	}
+	//logger.Write(DEBUG, "[Compat] Found function [%s]", funcName.c_str());
+	return reinterpret_cast<T>(func);
+}
+
+void setupDismemberment() {
+	//logger.Write(INFO, "[Compat] Setting up DismembermentASI");
+	g_DismembermentModule = GetModuleHandle("DismembermentASI.asi");
+	if (!g_DismembermentModule) {
+		//logger.Write(INFO, "[Compat] DismembermentASI.asi not found");
+		return;
+	}
+
+	g_Dismemberbent_AddBoneDraw = CheckAddr<void(*)(int, int, int)>(g_DismembermentModule, "AddBoneDraw");
+	g_Dismemberbent_RemoveBoneDraw = CheckAddr<void(*)(int)>(g_DismembermentModule, "RemoveBoneDraw");
+}
+
+bool DismembermentAvailable() {
+	return g_Dismemberbent_AddBoneDraw != nullptr &&
+		g_Dismemberbent_RemoveBoneDraw != nullptr;
+}
+
+void DismembermentAddBoneDraw(int handle, int start, int end) {
+	if (g_Dismemberbent_AddBoneDraw)
+		g_Dismemberbent_AddBoneDraw(handle, start, end);
+}
+
+void DismembermentRemoveBoneDraw(int handle) {
+	if (g_Dismemberbent_RemoveBoneDraw)
+		g_Dismemberbent_RemoveBoneDraw(handle);
+}
+
+void DismembermentHideHead(bool remove) {
+	if (DismembermentAvailable()) {
+		if (remove) {
+			DismembermentAddBoneDraw(playerPed, 0x796E, -1);
+			headRemoved = true;
+		}
+		else {
+			DismembermentRemoveBoneDraw(playerPed);
+			headRemoved = false;
+		}
+	}
+}
+
 bool IsWindowFocused() {
 	auto foregroundHwnd = GetForegroundWindow();
 	DWORD foregroundProcId;
@@ -1001,6 +1058,8 @@ void firstInit()
 	address = address + *reinterpret_cast<int*>(address) + 4;
 	gamePlayCameraAddr = *reinterpret_cast<UINT_PTR*>(*reinterpret_cast<int*>(address + 3) + address + 7);
 
+	setupDismemberment();
+
 	ReadSettings(false);
 }
 
@@ -1381,13 +1440,15 @@ void updateVehicleVars()
 
 void setupCurrentCamera() {
 	if (currentCam == eCamType::DriverSeat1P) {
-		ENTITY::SET_ENTITY_ALPHA(playerPed, 0, false);
 		CAM::SET_CAM_NEAR_CLIP(customCam, 0.05f);
 		CAM::SET_CAM_FAR_CLIP(customCam, 740.0f);
 		CAM::SET_CAM_FOV(customCam, fov1P);
 		smoothRotSeat = toV3f(ENTITY::GET_ENTITY_ROTATION(veh, 2));
 		smoothQuatSeat = getEntityQuaternion(veh);
 		relAngle3p = 0.f;
+
+		//ENTITY::SET_ENTITY_ALPHA(playerPed, 0, false);
+		DismembermentHideHead(true);
 	}
 	else if (currentCam == eCamType::ThirdPerson3P) {
 		CAM::SET_CAM_NEAR_CLIP(customCam, 0.15f);
@@ -1409,6 +1470,8 @@ void setupCurrentCamera() {
 
 		float auxHeightOffset = heightOffset3p + 0.15f + heightIcrementCalc;
 		smoothTargetPos = vehPos + ((up * auxHeightOffset) + ((currentTowHeightIncrement + auxHeightOffset) * up));
+
+		DismembermentHideHead(false);
 	}
 }
 
@@ -2046,9 +2109,10 @@ void updateCustomCamera()
 
 void haltCurrentCamera() {
 	if (currentCam == eCamType::DriverSeat1P) {
-		ENTITY::SET_ENTITY_ALPHA(playerPed, 255, false);
+		//ENTITY::SET_ENTITY_ALPHA(playerPed, 255, false);
 		CAM::SET_CAM_NEAR_CLIP(customCam, 0.15f);
 		CAM::SET_CAM_FAR_CLIP(customCam, 800.0f);
+		DismembermentHideHead(false);
 	}
 }
 
